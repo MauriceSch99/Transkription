@@ -24,7 +24,7 @@ public class HotkeyMatcherTests
         Assert.True(_m.Handle(F9, true, Modifiers.None));
         Assert.True(_m.Handle(F9, true, Modifiers.None)); // Tastenwiederholung beim Halten
         Assert.True(_m.Handle(F9, false, Modifiers.None));
-        Assert.Equal(new[] { "+Play", "-Play" }, _events);
+        Assert.Equal(new[] { "+PlayToggle", "-PlayToggle" }, _events);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class HotkeyMatcherTests
         _m.Handle(F7, true, Modifiers.None);
         _m.Handle(F7, true, Modifiers.None);
         _m.Handle(F7, false, Modifiers.Shift); // Umschalttaste beim Loslassen egal
-        Assert.Equal(new[] { "+Rewind", "-Rewind" }, _events);
+        Assert.Equal(new[] { "+RewindHold", "-RewindHold" }, _events);
     }
 
     [Fact]

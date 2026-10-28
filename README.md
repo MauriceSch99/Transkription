@@ -11,27 +11,23 @@ Infobereich neben der Uhr weiter.
 - **Fußschalter-Steuerung** für USB-Fußschalter (z. B. Philips LFH/ACC 2310/2320/2330, Infinity
   IN-USB-1/2/3, Olympus RS-27/28/31) und für **ältere serielle Fußschalter** mit 9-poligem Stecker
   (z. B. Philips LFH 2210, auch über USB-Seriell-Adapter). Die Pedale werden einmalig *angelernt*,
-  bis zu vier Pedale sind frei belegbar. Fußschalter, die sich als Tastatur ausgeben, werden als
-  Taste belegt.
+  **jedem Pedal kann eine eigene Funktion zugeordnet werden** (siehe unten). Fußschalter, die sich
+  als Tastatur ausgeben, werden als Taste belegt.
 - **Systemweite Tastenkürzel**, die auch funktionieren, wenn ein anderes Fenster aktiv ist.
   Standardbelegung wie bei Express Scribe:
 
-  | Taste | Aktion                   |
-  |-------|--------------------------|
-  | F9    | Wiedergabe / Pause       |
-  | F4    | Stopp                    |
-  | F7    | Zurückspulen             |
-  | F8    | Vorspulen                |
-  | F10   | Normale Geschwindigkeit  |
-  | F11   | Langsamer                |
-  | F12   | Schneller                |
+  | Taste | Funktion                                |
+  |-------|-----------------------------------------|
+  | F9    | Abspielen / Anhalten                    |
+  | F4    | Anhalten                                |
+  | F7    | Schnell zurückspulen, solange gedrückt  |
+  | F8    | Schnell vorspulen, solange gedrückt     |
+  | F10   | Normale Geschwindigkeit                 |
+  | F11   | Langsamer                               |
+  | F12   | Schneller                               |
 
-- **Wiedergabe-Pedal halten**: Die Wiedergabe läuft, solange das Pedal getreten wird (alternativ
-  schaltet jeder Tritt um).
 - **Automatischer Rücksprung** beim Anhalten (Standard 1 Sekunde), damit der Anschluss nicht
   verloren geht.
-- **Spulen**: Kurzes Antippen springt 2 Sekunden. Gedrückt halten spult mit vierfacher
-  Geschwindigkeit. Danach geht die Wiedergabe automatisch weiter, wenn sie vorher lief.
 - **Geschwindigkeit** zwischen 30 % und 300 % ohne Änderung der Tonhöhe, **Lautstärke** einstellbar.
 - **MP3** wird mit einem eingebauten Decoder abgespielt, unabhängig von Windows Media Player oder
   installierten Codecs. Auch Diktate mit niedriger oder variabler Bitrate (8–48 kHz, Mono/Stereo)
@@ -54,22 +50,52 @@ Voraussetzung: Windows 10 oder 11 (64 Bit). MP3 und WAV funktionieren immer. Fü
 wird Windows Media Foundation verwendet (bei Windows-„N“-Editionen das *Media Feature Pack*
 nachinstallieren).
 
+## Funktionen für Pedale und Tasten
+
+Jedes Pedal und jede Taste kann mit einer dieser Funktionen belegt werden:
+
+| Funktion | Verhalten |
+|----------|-----------|
+| Abspielen, solange gedrückt | Spielt, während das Pedal getreten wird; beim Loslassen wird angehalten (mit Rücksprung). |
+| Abspielen / Anhalten | Jeder Tritt startet bzw. hält an. |
+| Anhalten | Hält an. |
+| Schnell zurückspulen, solange gedrückt | Spult mit erhöhter Geschwindigkeit (Standard 4-fach) zurück. Lief die Wiedergabe vorher, geht sie danach weiter. |
+| Schnell vorspulen, solange gedrückt | Wie oben, nach vorne. |
+| Kurz zurückspringen | Springt bei jedem Tritt ein Stück zurück (Standard 3 Sekunden); die Wiedergabe läuft weiter. |
+| Kurz vorspringen | Wie oben, nach vorne. |
+| Langsamer / Schneller / Normale Geschwindigkeit | Ändert das Tempo in Schritten (Standard 10 %), ohne die Tonhöhe zu ändern. |
+| Zum Anfang | Springt an den Anfang der Datei. |
+| Zeitmarke eintippen | Schreibt z. B. `[00:12:34]` in das Programm im Vordergrund. |
+
+Sprungweite, Spulgeschwindigkeit und Rücksprung lassen sich unter *Einstellungen → Wiedergabe*
+ändern. Für die vier Pedale gibt es zwei Voreinstellungen, die mit einem Klick gesetzt werden:
+
+| Pedal | „Halten“ (Standard) | „Umschalten“ |
+|-------|---------------------|--------------|
+| 1 | Schnell zurückspulen, solange gedrückt | Kurz zurückspringen |
+| 2 | Abspielen, solange gedrückt | Abspielen / Anhalten |
+| 3 | Schnell vorspulen, solange gedrückt | Kurz vorspringen |
+| 4 | Kurz zurückspringen | Anhalten |
+
+Danach kann jedes Pedal einzeln umgestellt werden.
+
 ## Fußschalter einrichten
 
 1. Fußschalter anschließen und Transkription starten. Läuft noch ein anderes Diktatprogramm
    (z. B. Philips SpeechExec oder Express Scribe), dieses vorher beenden.
 2. **Nur bei seriellem Stecker:** *Einstellungen → Geräte* öffnen und den COM-Anschluss wählen.
    USB-Fußschalter brauchen hier keine Einstellung.
-3. *Einstellungen → Tasten & Fußschalter* öffnen.
-4. Bei „Zurückspulen“ auf **Anlernen** klicken, das linke Pedal treten und loslassen (falls nötig
-   ein zweites Mal). Danach dasselbe für „Wiedergabe / Pause“ (Mitte) und „Vorspulen“ (rechts).
-   Das vierte Pedal kann z. B. mit „Stopp“, „Zum Anfang“ oder „Zeitmarke eintippen“ belegt werden.
-5. Mit **OK** speichern.
+3. *Einstellungen → Fußschalter* öffnen. Dort stehen vier Pedale, jedes mit einer Auswahlliste
+   für die Funktion.
+4. Bei **Pedal 1** auf **Anlernen** klicken, das gewünschte Pedal treten und loslassen (falls nötig
+   ein zweites Mal). Dasselbe für Pedal 2 bis 4.
+5. Für jedes Pedal die gewünschte Funktion wählen (oder eine Voreinstellung anklicken) und mit
+   **OK** speichern.
 
 Im Reiter *Geräte* sind alle erkannten USB-Eingabegeräte aufgelistet (Philips-Geräte haben meist
 die VID 0911). Beim Treten eines Pedals zeigt „Letztes Signal“, von welchem Gerät es kommt.
-Erscheint der Fußschalter nicht, gibt er sich vermutlich als Tastatur aus. Dann bei der Aktion
-**Taste ändern** klicken und das Pedal treten.
+Erscheint der Fußschalter nicht, gibt er sich vermutlich als Tastatur aus. Dann unter
+*Einstellungen → Tasten* bei der Funktion **Taste ändern** klicken und das Pedal treten.
 
 > Ein Programm, das „als Administrator“ läuft, lässt sich von Windows aus Sicherheitsgründen nicht
 > fernsteuern. Schreibt man dort, muss Transkription ebenfalls als Administrator gestartet werden.

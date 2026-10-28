@@ -1,16 +1,41 @@
 namespace Transkription.Core;
 
+/// <summary>Funktionen, die einer Taste oder einem Pedal zugeordnet werden können.</summary>
 public enum PlayerAction
 {
-    Play,
+    /// <summary>Pedal/Taste ohne Funktion.</summary>
+    None,
+
+    /// <summary>Spielt, solange gedrückt; beim Loslassen anhalten (mit Rücksprung).</summary>
+    PlayHold,
+
+    /// <summary>Jeder Druck schaltet zwischen Abspielen und Anhalten um.</summary>
+    PlayToggle,
+
     Stop,
-    Rewind,
-    FastForward,
+
+    /// <summary>Spult mit erhöhter Geschwindigkeit zurück, solange gedrückt.</summary>
+    RewindHold,
+
+    /// <summary>Spult mit erhöhter Geschwindigkeit vor, solange gedrückt.</summary>
+    ForwardHold,
+
+    /// <summary>Springt einmal kurz zurück.</summary>
+    JumpBack,
+
+    /// <summary>Springt einmal kurz vor.</summary>
+    JumpForward,
+
     SpeedDown,
     SpeedUp,
     SpeedNormal,
     JumpToStart,
     InsertTimestamp,
+
+    // Bezeichnungen aus Version 1.0; werden beim Laden der Einstellungen umgewandelt.
+    Play,
+    Rewind,
+    FastForward,
 }
 
 public enum InputSource
@@ -22,14 +47,33 @@ public enum InputSource
 
 public static class PlayerActions
 {
-    public static readonly PlayerAction[] All = Enum.GetValues<PlayerAction>();
+    /// <summary>Alle Funktionen, die in den Einstellungen gewählt werden können (ohne „keine“).</summary>
+    public static readonly PlayerAction[] All =
+    {
+        PlayerAction.PlayHold,
+        PlayerAction.PlayToggle,
+        PlayerAction.Stop,
+        PlayerAction.RewindHold,
+        PlayerAction.ForwardHold,
+        PlayerAction.JumpBack,
+        PlayerAction.JumpForward,
+        PlayerAction.SpeedDown,
+        PlayerAction.SpeedUp,
+        PlayerAction.SpeedNormal,
+        PlayerAction.JumpToStart,
+        PlayerAction.InsertTimestamp,
+    };
 
     public static string DisplayName(PlayerAction action) => action switch
     {
-        PlayerAction.Play => "Wiedergabe / Pause",
-        PlayerAction.Stop => "Stopp",
-        PlayerAction.Rewind => "Zurückspulen",
-        PlayerAction.FastForward => "Vorspulen",
+        PlayerAction.None => "Keine Funktion",
+        PlayerAction.PlayHold => "Abspielen, solange gedrückt",
+        PlayerAction.PlayToggle => "Abspielen / Anhalten",
+        PlayerAction.Stop => "Anhalten",
+        PlayerAction.RewindHold => "Schnell zurückspulen, solange gedrückt",
+        PlayerAction.ForwardHold => "Schnell vorspulen, solange gedrückt",
+        PlayerAction.JumpBack => "Kurz zurückspringen",
+        PlayerAction.JumpForward => "Kurz vorspringen",
         PlayerAction.SpeedDown => "Langsamer",
         PlayerAction.SpeedUp => "Schneller",
         PlayerAction.SpeedNormal => "Normale Geschwindigkeit",

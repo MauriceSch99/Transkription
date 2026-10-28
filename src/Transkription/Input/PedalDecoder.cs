@@ -43,6 +43,7 @@ public sealed class PedalDecoder
     public event Action<PedalDevice>? ReportReceived;
 
     public static bool Matches(PedalBinding binding, PedalDevice device) =>
+        !binding.IsLearned ? false :
         binding.Port != null || device.Port != null
             ? string.Equals(binding.Port, device.Port, StringComparison.OrdinalIgnoreCase)
             : binding.VendorId == device.VendorId && binding.ProductId == device.ProductId;
@@ -78,7 +79,7 @@ public sealed class PedalDecoder
 
         foreach (var b in _bindings)
         {
-            if (!Matches(b, device) || b.ByteIndex >= report.Length) continue;
+            if (!b.IsLearned || !Matches(b, device) || b.ByteIndex >= report.Length) continue;
 
             var down = (report[b.ByteIndex] & b.Mask) == b.Mask;
             if (down && Enabled && _pressed.Add(b))

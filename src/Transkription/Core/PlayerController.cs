@@ -12,15 +12,12 @@ namespace Transkription.Core;
 /// </summary>
 public sealed class PlayerController : IDisposable
 {
-    private static readonly TimeSpan WindDelay = TimeSpan.FromMilliseconds(350);
-
     private readonly AudioEngine _engine;
     private readonly Func<string, WaveStream> _openReader;
     private readonly Func<DateTime> _now;
     private TimeSpan _pendingStart;
     private int _loadId;
     private int _windDirection;
-    private DateTime _windStarted;
     private DateTime _lastWindTick;
     private bool _resumeAfterWind;
     private bool _playHeld;
@@ -117,25 +114,27 @@ public sealed class PlayerController : IDisposable
     {
         switch (action)
         {
-            case PlayerAction.Play:
-                if (ModeFor(source) == PlayMode.Hold)
-                {
-                    _playHeld = true;
-                    if (!IsWinding) Play();
-                }
-                else
-                {
-                    TogglePlay();
-                }
+            case PlayerAction.PlayHold:
+                _playHeld = true;
+                if (!IsWinding) Play();
+                break;
+            case PlayerAction.PlayToggle:
+                TogglePlay();
                 break;
             case PlayerAction.Stop:
                 Stop();
                 break;
-            case PlayerAction.Rewind:
+            case PlayerAction.RewindHold:
                 StartWind(-1);
                 break;
-            case PlayerAction.FastForward:
+            case PlayerAction.ForwardHold:
                 StartWind(+1);
+                break;
+            case PlayerAction.JumpBack:
+                SeekBy(-Settings.SkipSeconds);
+                break;
+            case PlayerAction.JumpForward:
+                SeekBy(Settings.SkipSeconds);
                 break;
             case PlayerAction.SpeedDown:
                 SetSpeed(Settings.SpeedPercent - Settings.SpeedStepPercent);
@@ -156,24 +155,17 @@ public sealed class PlayerController : IDisposable
     {
         switch (action)
         {
-            case PlayerAction.Play when ModeFor(source) == PlayMode.Hold:
+            case PlayerAction.PlayHold:
                 _playHeld = false;
                 if (IsWinding) _resumeAfterWind = false;
                 else Pause(backstep: true);
                 break;
-            case PlayerAction.Rewind when _windDirection < 0:
-            case PlayerAction.FastForward when _windDirection > 0:
+            case PlayerAction.RewindHold when _windDirection < 0:
+            case PlayerAction.ForwardHold when _windDirection > 0:
                 StopWind(resume: true);
                 break;
         }
     }
-
-    private PlayMode ModeFor(InputSource source) => source switch
-    {
-        InputSource.Pedal => Settings.PedalPlayMode,
-        InputSource.Keyboard => Settings.KeyboardPlayMode,
-        _ => PlayMode.Toggle,
-    };
 
     // ---------- Grundfunktionen ----------
 
@@ -247,8 +239,8 @@ public sealed class PlayerController : IDisposable
     // ---------- Spulen ----------
 
     /// <summary>
-    /// Kurzes Antippen springt um <see cref="AppSettings.SkipSeconds"/>; wird länger gehalten,
-    /// wird mit <see cref="AppSettings.WindSpeed"/>-facher Geschwindigkeit gespult.
+    /// Spult mit <see cref="AppSettings.WindSpeed"/>-facher Geschwindigkeit, bis <see cref="StopWind"/>
+    /// aufgerufen wird. Lief die Wiedergabe vorher, geht sie danach weiter.
     /// </summary>
     public void StartWind(int direction)
     {
@@ -256,8 +248,7 @@ public sealed class PlayerController : IDisposable
         _resumeAfterWind = IsPlaying || _playHeld;
         _engine.Pause();
         _windDirection = direction;
-        _windStarted = _lastWindTick = _now();
-        SeekBy(direction * Settings.SkipSeconds);
+        _lastWindTick = _now();
         StateChanged?.Invoke();
     }
 
@@ -275,7 +266,6 @@ public sealed class PlayerController : IDisposable
         var now = _now();
         var elapsed = now - _lastWindTick;
         _lastWindTick = now;
-        if (now - _windStarted < WindDelay) return;
         SeekBy(_windDirection * Settings.WindSpeed * elapsed.TotalSeconds);
     }
 

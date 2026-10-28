@@ -74,12 +74,12 @@ public partial class MainWindow : Window
             LastInput.Text = "";
         };
 
-        RewindButton.PreviewMouseLeftButtonDown += (_, _) => _player.ActionDown(PlayerAction.Rewind, InputSource.Ui);
-        RewindButton.PreviewMouseLeftButtonUp += (_, _) => _player.ActionUp(PlayerAction.Rewind, InputSource.Ui);
-        RewindButton.LostMouseCapture += (_, _) => _player.ActionUp(PlayerAction.Rewind, InputSource.Ui);
-        ForwardButton.PreviewMouseLeftButtonDown += (_, _) => _player.ActionDown(PlayerAction.FastForward, InputSource.Ui);
-        ForwardButton.PreviewMouseLeftButtonUp += (_, _) => _player.ActionUp(PlayerAction.FastForward, InputSource.Ui);
-        ForwardButton.LostMouseCapture += (_, _) => _player.ActionUp(PlayerAction.FastForward, InputSource.Ui);
+        RewindButton.PreviewMouseLeftButtonDown += (_, _) => _player.ActionDown(PlayerAction.RewindHold, InputSource.Ui);
+        RewindButton.PreviewMouseLeftButtonUp += (_, _) => _player.ActionUp(PlayerAction.RewindHold, InputSource.Ui);
+        RewindButton.LostMouseCapture += (_, _) => _player.ActionUp(PlayerAction.RewindHold, InputSource.Ui);
+        ForwardButton.PreviewMouseLeftButtonDown += (_, _) => _player.ActionDown(PlayerAction.ForwardHold, InputSource.Ui);
+        ForwardButton.PreviewMouseLeftButtonUp += (_, _) => _player.ActionUp(PlayerAction.ForwardHold, InputSource.Ui);
+        ForwardButton.LostMouseCapture += (_, _) => _player.ActionUp(PlayerAction.ForwardHold, InputSource.Ui);
 
         Drop += OnDrop;
         StateChanged += OnWindowStateChanged;
@@ -398,9 +398,9 @@ public partial class MainWindow : Window
 
         if (_serialError != null)
             PedalStatus.Text = "Fußschalter: " + _serialError;
-        else if (_settings.PedalBindings.Count == 0)
+        else if (!_settings.PedalBindings.Any(b => b.IsLearned))
             PedalStatus.Text = "Fußschalter: nicht eingerichtet (Einstellungen → Anlernen)";
-        else if (_pedal?.HasBoundDevice == true || (_serial != null && _settings.PedalBindings.Any(b => b.Port != null)))
+        else if (_pedal?.HasBoundDevice == true || (_serial != null && _settings.PedalBindings.Any(b => b.IsLearned && b.Port != null)))
             PedalStatus.Text = _settings.HotkeysEnabled ? "Fußschalter: verbunden" : "Fußschalter: ausgeschaltet";
         else
             PedalStatus.Text = "Fußschalter: nicht angeschlossen";
@@ -426,6 +426,8 @@ public partial class MainWindow : Window
     private void Play_Click(object sender, RoutedEventArgs e) => _player.TogglePlay();
     private void Stop_Click(object sender, RoutedEventArgs e) => _player.Stop();
     private void Start_Click(object sender, RoutedEventArgs e) => _player.Seek(TimeSpan.Zero);
+    private void JumpBack_Click(object sender, RoutedEventArgs e) => _player.ActionDown(PlayerAction.JumpBack, InputSource.Ui);
+    private void JumpForward_Click(object sender, RoutedEventArgs e) => _player.ActionDown(PlayerAction.JumpForward, InputSource.Ui);
     private void SpeedDown_Click(object sender, RoutedEventArgs e) => _player.ActionDown(PlayerAction.SpeedDown, InputSource.Ui);
     private void SpeedUp_Click(object sender, RoutedEventArgs e) => _player.ActionDown(PlayerAction.SpeedUp, InputSource.Ui);
     private void SpeedNormal_Click(object sender, RoutedEventArgs e) => _player.SetSpeed(100);

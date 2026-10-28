@@ -10,7 +10,7 @@ public class PlayerControllerTests
     private DateTime _now = new(2026, 1, 1);
     private readonly List<FakeOutput> _outputs;
     private readonly PlayerController _player;
-    private readonly AppSettings _settings = new(); // Standard: Pedal halten, Tastatur umschalten, 1 s Rücksprung
+    private readonly AppSettings _settings = new(); // Standard: 1 s Rücksprung, 3 s Sprung, 4-fach spulen
 
     public PlayerControllerTests()
     {
@@ -47,37 +47,40 @@ public class PlayerControllerTests
         Near(20.04, _player.Duration, 0.1);
     }
 
+    private void Down(PlayerAction a) => _player.ActionDown(a, InputSource.Pedal);
+    private void Up(PlayerAction a) => _player.ActionUp(a, InputSource.Pedal);
+
+    private void Tap(PlayerAction a)
+    {
+        Down(a);
+        Up(a);
+    }
+
+    private double HeardFrequency(double seconds = 0.3)
+    {
+        var s = Output.Pull(seconds);
+        var sr = Output.Format.SampleRate;
+        return Signal.Frequency(s.AsSpan(sr / 10, s.Length - sr / 10), sr);
+    }
+
+    // ---------- Abspielen, solange gedrückt ----------
+
     [Fact]
-    public async Task Pedal_halten_spielt_und_Loslassen_springt_zurueck()
+    public async Task Abspielen_solange_gedrueckt_und_Loslassen_springt_zurueck()
     {
         await LoadAsync(5);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
+        Down(PlayerAction.PlayHold);
         Assert.True(_player.IsPlaying);
         Output.Pull(3.0);
         Near(8.0, _player.Position);
 
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal);
+        Up(PlayerAction.PlayHold);
         Assert.False(_player.IsPlaying);
         Near(7.0, _player.Position); // 8 s gehört, 1 s Rücksprung
 
         // Erneut treten: geht an der zurückgesprungenen Stelle weiter.
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
-        var s = Output.Pull(0.3);
-        var sr = Output.Format.SampleRate;
-        Assert.InRange(Signal.Frequency(s.AsSpan(sr / 10, sr / 5), sr), 990, 1010); // Sekunde 7
-    }
-
-    [Fact]
-    public async Task Taste_schaltet_um()
-    {
-        await LoadAsync(2);
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
-        _player.ActionUp(PlayerAction.Play, InputSource.Keyboard);
-        Assert.True(_player.IsPlaying); // Loslassen ändert nichts
-        Output.Pull(2.0);
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
-        Assert.False(_player.IsPlaying);
-        Near(3.0, _player.Position);
+        Down(PlayerAction.PlayHold);
+        Assert.InRange(HeardFrequency(), 990, 1010); // Sekunde 7
     }
 
     [Fact]
@@ -85,92 +88,199 @@ public class PlayerControllerTests
     {
         _settings.BackstepSeconds = 0;
         await LoadAsync(2);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
+        Down(PlayerAction.PlayHold);
         Output.Pull(1.0);
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal);
+        Up(PlayerAction.PlayHold);
         Near(3.0, _player.Position);
     }
 
+    // ---------- Abspielen / Anhalten ----------
+
     [Fact]
-    public async Task Zurueckspulen_antippen_springt_und_spielt_weiter()
+    public async Task Abspielen_Anhalten_schaltet_bei_jedem_Druck_um()
     {
-        await LoadAsync(10);
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
-        Output.Pull(1.0);
-        _player.ActionDown(PlayerAction.Rewind, InputSource.Pedal);
+        await LoadAsync(2);
+        Tap(PlayerAction.PlayToggle);
+        Assert.True(_player.IsPlaying); // Loslassen ändert nichts
+        Output.Pull(2.0);
+        Tap(PlayerAction.PlayToggle);
         Assert.False(_player.IsPlaying);
-        Near(9.0, _player.Position); // 11 - 2
-        Advance(0.1);
-        _player.ActionUp(PlayerAction.Rewind, InputSource.Pedal);
+        Near(3.0, _player.Position); // 4 s – 1 s Rücksprung
+        Tap(PlayerAction.PlayToggle);
         Assert.True(_player.IsPlaying);
-        Near(9.0, _player.Position);
     }
 
     [Fact]
-    public async Task Zurueckspulen_halten_spult_schnell()
+    public async Task Anhalten_haelt_an_und_beendet_Halten()
+    {
+        await LoadAsync(4);
+        Down(PlayerAction.PlayHold);
+        Output.Pull(1.0);
+        Tap(PlayerAction.Stop);
+        Assert.False(_player.IsPlaying);
+        Near(4.0, _player.Position);
+        Up(PlayerAction.PlayHold); // nachträgliches Loslassen: kein weiterer Rücksprung
+        Near(4.0, _player.Position);
+        Tap(PlayerAction.Stop);    // erneutes Anhalten ändert nichts
+        Near(4.0, _player.Position);
+    }
+
+    // ---------- Schnell spulen, solange gedrückt ----------
+
+    [Fact]
+    public async Task Schnell_zurueckspulen_solange_gedrueckt()
     {
         await LoadAsync(15);
-        _player.ActionDown(PlayerAction.Rewind, InputSource.Pedal);
-        Near(13.0, _player.Position);
-        Advance(0.3);              // innerhalb der Verzögerung: noch kein Spulen
-        Near(13.0, _player.Position);
-        Advance(1.0);              // 4-fache Geschwindigkeit: ca. 4 s zurück (+ Rest der Verzögerung)
-        Assert.InRange(_player.Position.TotalSeconds, 8.6, 9.2);
-        _player.ActionUp(PlayerAction.Rewind, InputSource.Pedal);
+        Down(PlayerAction.RewindHold);
+        Assert.True(_player.IsWinding);
+        Advance(1.0); // 4-fache Geschwindigkeit: 4 s zurück
+        Near(11.0, _player.Position, 0.05);
+        Advance(0.5);
+        Near(9.0, _player.Position, 0.05);
+        Up(PlayerAction.RewindHold);
+        Assert.False(_player.IsWinding);
         Assert.False(_player.IsPlaying); // war vorher angehalten
+        Advance(1.0);
+        Near(9.0, _player.Position, 0.05); // nach dem Loslassen bewegt sich nichts mehr
+    }
+
+    [Fact]
+    public async Task Schnell_vorspulen_solange_gedrueckt()
+    {
+        await LoadAsync(2);
+        Down(PlayerAction.ForwardHold);
+        Advance(1.0);
+        Near(6.0, _player.Position, 0.05);
+        Up(PlayerAction.ForwardHold);
+        Assert.False(_player.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Spulgeschwindigkeit_ist_einstellbar()
+    {
+        _settings.WindSpeed = 8;
+        await LoadAsync(1);
+        Down(PlayerAction.ForwardHold);
+        Advance(1.0);
+        Up(PlayerAction.ForwardHold);
+        Near(9.0, _player.Position, 0.05);
+    }
+
+    [Fact]
+    public async Task Spulen_waehrend_der_Wiedergabe_spielt_danach_weiter()
+    {
+        await LoadAsync(10);
+        Tap(PlayerAction.PlayToggle);
+        Output.Pull(1.0);
+        Down(PlayerAction.RewindHold);
+        Assert.False(_player.IsPlaying);
+        Advance(1.0);
+        Up(PlayerAction.RewindHold);
+        Assert.True(_player.IsPlaying);
+        Near(7.0, _player.Position, 0.05); // 11 − 4
+        Assert.InRange(HeardFrequency(), 990, 1010); // Sekunde 7 ist zu hören
+    }
+
+    [Fact]
+    public async Task Vorspulen_waehrend_Abspiel_pedal_gehalten_spielt_weiter()
+    {
+        await LoadAsync(3);
+        Down(PlayerAction.PlayHold);
+        Output.Pull(1.0);
+        Down(PlayerAction.ForwardHold);
+        Advance(1.5);
+        Near(10.0, _player.Position, 0.05); // 4 + 6
+        Up(PlayerAction.ForwardHold);
+        Assert.True(_player.IsPlaying); // Abspiel-Pedal ist noch getreten
+        Assert.InRange(HeardFrequency(), 1290, 1310); // Sekunde 10
+
+        Up(PlayerAction.PlayHold);
+        Assert.False(_player.IsPlaying);
+    }
+
+    [Fact]
+    public async Task Abspiel_pedal_waehrend_Spulen_losgelassen_spielt_danach_nicht()
+    {
+        await LoadAsync(3);
+        Down(PlayerAction.PlayHold);
+        Down(PlayerAction.RewindHold);
+        Up(PlayerAction.PlayHold);
+        Up(PlayerAction.RewindHold);
+        Assert.False(_player.IsPlaying);
     }
 
     [Fact]
     public async Task Zurueckspulen_bleibt_am_Anfang_stehen()
     {
         await LoadAsync(1);
-        _player.ActionDown(PlayerAction.Rewind, InputSource.Pedal);
+        Down(PlayerAction.RewindHold);
         Advance(3.0);
         Assert.Equal(TimeSpan.Zero, _player.Position);
-        _player.ActionUp(PlayerAction.Rewind, InputSource.Pedal);
-    }
-
-    [Fact]
-    public async Task Vorspulen_waehrend_Wiedergabe_pedal_gehalten()
-    {
-        await LoadAsync(3);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
-        Output.Pull(1.0);
-        _player.ActionDown(PlayerAction.FastForward, InputSource.Pedal);
-        Advance(1.35);
-        // 4 s + 2 s Sprung + ca. 1,05 s Spulen mit 4-facher Geschwindigkeit
-        Assert.InRange(_player.Position.TotalSeconds, 10.0, 10.5);
-        _player.ActionUp(PlayerAction.FastForward, InputSource.Pedal);
-        Assert.True(_player.IsPlaying); // Wiedergabe-Pedal ist noch getreten
-        var s = Output.Pull(0.3);
-        Assert.InRange(Signal.Frequency(s.AsSpan(), Output.Format.SampleRate), 1250, 1350); // ~ Sekunde 10
-
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal);
-        Assert.False(_player.IsPlaying);
-    }
-
-    [Fact]
-    public async Task Wiedergabe_pedal_waehrend_Spulen_losgelassen_spielt_danach_nicht()
-    {
-        await LoadAsync(3);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
-        _player.ActionDown(PlayerAction.Rewind, InputSource.Pedal);
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal);
-        _player.ActionUp(PlayerAction.Rewind, InputSource.Pedal);
-        Assert.False(_player.IsPlaying);
+        Up(PlayerAction.RewindHold);
     }
 
     [Fact]
     public async Task Vorspulen_bis_zum_Ende_startet_nicht_von_vorne()
     {
         await LoadAsync(17);
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
-        _player.ActionDown(PlayerAction.FastForward, InputSource.Pedal);
+        Tap(PlayerAction.PlayToggle);
+        Down(PlayerAction.ForwardHold);
         Advance(3.0);
         Assert.Equal(_player.Duration, _player.Position);
-        _player.ActionUp(PlayerAction.FastForward, InputSource.Pedal);
+        Up(PlayerAction.ForwardHold);
         Assert.False(_player.IsPlaying);
         Assert.Equal(_player.Duration, _player.Position);
+    }
+
+    // ---------- Kurz springen ----------
+
+    [Fact]
+    public async Task Kurz_zurueckspringen_waehrend_der_Wiedergabe()
+    {
+        await LoadAsync(10);
+        Tap(PlayerAction.PlayToggle);
+        Output.Pull(1.0);
+        Tap(PlayerAction.JumpBack);
+        Assert.True(_player.IsPlaying); // läuft weiter
+        Near(8.0, _player.Position);    // 11 − 3
+        Assert.InRange(HeardFrequency(), 1090, 1110); // Sekunde 8
+        Tap(PlayerAction.JumpBack);
+        Tap(PlayerAction.JumpBack);
+        Near(2.3, _player.Position, 0.05); // 8,3 − 6
+    }
+
+    [Fact]
+    public async Task Kurz_vorspringen_im_Stillstand()
+    {
+        await LoadAsync(4);
+        Tap(PlayerAction.JumpForward);
+        Assert.False(_player.IsPlaying);
+        Near(7.0, _player.Position);
+        _settings.SkipSeconds = 5;
+        Tap(PlayerAction.JumpForward);
+        Near(12.0, _player.Position);
+        Tap(PlayerAction.JumpForward);
+        Tap(PlayerAction.JumpForward);
+        Assert.Equal(_player.Duration, _player.Position); // nicht über das Ende hinaus
+        Tap(PlayerAction.JumpBack);
+        Near(_player.Duration.TotalSeconds - 5, _player.Position);
+    }
+
+    [Fact]
+    public async Task Kurz_zurueckspringen_am_Anfang()
+    {
+        await LoadAsync(1);
+        Tap(PlayerAction.JumpBack);
+        Assert.Equal(TimeSpan.Zero, _player.Position);
+    }
+
+    [Fact]
+    public async Task Keine_Funktion_tut_nichts()
+    {
+        await LoadAsync(5);
+        Tap(PlayerAction.None);
+        Assert.False(_player.IsPlaying);
+        Near(5.0, _player.Position);
     }
 
     [Fact]
@@ -179,29 +289,16 @@ public class PlayerControllerTests
         await LoadAsync(19.5);
         var changes = 0;
         _player.StateChanged += () => changes++;
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
+        Tap(PlayerAction.PlayToggle);
         Output.Pull(2.0);
         Assert.False(_player.IsPlaying);
         Assert.True(changes >= 2);
 
-        _player.ActionDown(PlayerAction.Play, InputSource.Keyboard);
+        Tap(PlayerAction.PlayToggle);
         Assert.True(_player.IsPlaying);
         var s = Output.Pull(0.4);
         var sr = Output.Format.SampleRate;
         Assert.InRange(Signal.Frequency(s.AsSpan(sr / 10, sr / 5), sr), 290, 310);
-    }
-
-    [Fact]
-    public async Task Stopp_haelt_an_und_beendet_Halten()
-    {
-        await LoadAsync(4);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
-        Output.Pull(1.0);
-        _player.ActionDown(PlayerAction.Stop, InputSource.Keyboard);
-        Assert.False(_player.IsPlaying);
-        Near(4.0, _player.Position);
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal); // nachträgliches Loslassen: kein weiterer Rücksprung
-        Near(4.0, _player.Position);
     }
 
     [Fact]
@@ -223,10 +320,10 @@ public class PlayerControllerTests
     {
         _settings.SpeedPercent = 70;
         await LoadAsync(2);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal);
+        Down(PlayerAction.PlayHold);
         Output.Pull(1.4); // 1,4 s bei 70 % = 0,98 s der Datei
         Near(2.98, _player.Position);
-        _player.ActionUp(PlayerAction.Play, InputSource.Pedal);
+        Up(PlayerAction.PlayHold);
         Near(1.98, _player.Position);
     }
 
@@ -253,8 +350,7 @@ public class PlayerControllerTests
         Assert.False(_player.HasMedia);
         Assert.False(_player.IsLoading);
         Assert.NotNull(error);
-        _player.ActionDown(PlayerAction.Play, InputSource.Pedal); // darf nicht abstürzen
-        _player.ActionDown(PlayerAction.Rewind, InputSource.Pedal);
+        foreach (var a in PlayerActions.All) Tap(a); // darf nicht abstürzen
         File.Delete(path);
     }
 }

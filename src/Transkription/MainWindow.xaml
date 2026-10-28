@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Transkription"
         Icon="Assets/app.ico"
-        Width="860" Height="600" MinWidth="640" MinHeight="460"
+        Width="900" Height="600" MinWidth="760" MinHeight="460"
         AllowDrop="True"
         Background="{StaticResource PanelBrush}">
 
@@ -30,6 +30,8 @@
                 <MenuItem Header="_Wiedergabe / Pause" Click="Play_Click" />
                 <MenuItem Header="_Stopp" Click="Stop_Click" />
                 <MenuItem Header="Zum _Anfang" Click="Start_Click" />
+                <MenuItem Header="Kurz _zurückspringen" Click="JumpBack_Click" />
+                <MenuItem Header="Kurz _vorspringen" Click="JumpForward_Click" />
                 <Separator />
                 <MenuItem Header="_Langsamer" Click="SpeedDown_Click" />
                 <MenuItem Header="S_chneller" Click="SpeedUp_Click" />
@@ -141,10 +143,12 @@
 
                     <StackPanel Grid.Column="0" Orientation="Horizontal">
                         <Button Style="{StaticResource TransportButton}" Content="&#xE892;" Click="Start_Click" ToolTip="Zum Anfang" />
-                        <Button x:Name="RewindButton" Style="{StaticResource TransportButton}" Content="&#xEB9E;" ToolTip="Zurückspulen (gedrückt halten zum Spulen)" />
+                        <Button x:Name="JumpBackButton" Style="{StaticResource TransportButton}" Content="&#xE7A7;" Click="JumpBack_Click" ToolTip="Kurz zurückspringen" />
+                        <Button x:Name="RewindButton" Style="{StaticResource TransportButton}" Content="&#xEB9E;" ToolTip="Schnell zurückspulen (gedrückt halten)" />
                         <Button Style="{StaticResource TransportButton}" Content="&#xE71A;" Click="Stop_Click" ToolTip="Stopp" />
                         <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;" Click="Play_Click" ToolTip="Wiedergabe / Pause" />
-                        <Button x:Name="ForwardButton" Style="{StaticResource TransportButton}" Content="&#xEB9D;" ToolTip="Vorspulen (gedrückt halten zum Spulen)" />
+                        <Button x:Name="ForwardButton" Style="{StaticResource TransportButton}" Content="&#xEB9D;" ToolTip="Schnell vorspulen (gedrückt halten)" />
+                        <Button x:Name="JumpForwardButton" Style="{StaticResource TransportButton}" Content="&#xE7A6;" Click="JumpForward_Click" ToolTip="Kurz vorspringen" />
                     </StackPanel>
 
                     <Grid Grid.Column="2" VerticalAlignment="Center">

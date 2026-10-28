@@ -48,9 +48,9 @@ public class PedalDecoderTests
     {
         Send(Philips, 0x00, 0x00); // Ruhezustand (kommt z. B. beim Einstecken)
 
-        var rewind = Learn(PlayerAction.Rewind, () => { Send(Philips, 0, 0x01); Send(Philips, 0, 0x00); });
-        var play = Learn(PlayerAction.Play, () => { Send(Philips, 0, 0x02); Send(Philips, 0, 0x00); });
-        var forward = Learn(PlayerAction.FastForward, () => { Send(Philips, 0, 0x04); Send(Philips, 0, 0x00); });
+        var rewind = Learn(PlayerAction.RewindHold, () => { Send(Philips, 0, 0x01); Send(Philips, 0, 0x00); });
+        var play = Learn(PlayerAction.PlayHold, () => { Send(Philips, 0, 0x02); Send(Philips, 0, 0x00); });
+        var forward = Learn(PlayerAction.ForwardHold, () => { Send(Philips, 0, 0x04); Send(Philips, 0, 0x00); });
         var stop = Learn(PlayerAction.Stop, () => { Send(Philips, 0, 0x08); Send(Philips, 0, 0x00); });
 
         Assert.Equal((1, 0x01), (rewind.ByteIndex, rewind.Mask));
@@ -72,7 +72,7 @@ public class PedalDecoderTests
         Send(Philips, 0, 0x08);
         Send(Philips, 0, 0x00);
 
-        Assert.Equal(new[] { "+Play", "+Rewind", "-Rewind", "-Play", "+Stop", "-Stop" }, _events);
+        Assert.Equal(new[] { "+PlayHold", "+RewindHold", "-RewindHold", "-PlayHold", "+Stop", "-Stop" }, _events);
     }
 
     [Fact]
@@ -131,11 +131,11 @@ public class PedalDecoderTests
         Assert.NotNull(learned);
         Assert.Equal(0x04, learned!.Mask);
 
-        learned.Action = PlayerAction.FastForward;
+        learned.Action = PlayerAction.ForwardHold;
         _decoder.Bindings = new[] { learned };
         Stream(0x04, 300);
         Stream(0, 300);
-        Assert.Equal(new[] { "+FastForward", "-FastForward" }, _events);
+        Assert.Equal(new[] { "+ForwardHold", "-ForwardHold" }, _events);
     }
 
     [Fact]
@@ -170,18 +170,18 @@ public class PedalDecoderTests
     [Fact]
     public void Gleiches_Modell_an_anderem_USB_Anschluss_funktioniert()
     {
-        var play = new PedalBinding { Action = PlayerAction.Play, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
+        var play = new PedalBinding { Action = PlayerAction.PlayHold, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
         _decoder.Bindings = new[] { play };
         var replugged = Philips with { InstanceKey = "hid-99" };
         Send(replugged, 0x02);
         Send(replugged, 0x00);
-        Assert.Equal(new[] { "+Play", "-Play" }, _events);
+        Assert.Equal(new[] { "+PlayHold", "-PlayHold" }, _events);
     }
 
     [Fact]
     public void Andere_Geraete_loesen_nichts_aus()
     {
-        _decoder.Bindings = new[] { new PedalBinding { Action = PlayerAction.Play, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 } };
+        _decoder.Bindings = new[] { new PedalBinding { Action = PlayerAction.PlayHold, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 } };
         Send(Gamepad, 0x02);
         Send(Serial, 0x02);
         Assert.Empty(_events);
@@ -190,32 +190,32 @@ public class PedalDecoderTests
     [Fact]
     public void Ausgeschaltet_loest_nichts_aus_aber_Loslassen_kommt_an()
     {
-        var play = new PedalBinding { Action = PlayerAction.Play, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
+        var play = new PedalBinding { Action = PlayerAction.PlayHold, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
         _decoder.Bindings = new[] { play };
         Send(Philips, 0x02);
         _decoder.Enabled = false;
         Send(Philips, 0x00);      // Loslassen nach dem Ausschalten muss trotzdem ankommen
         Send(Philips, 0x02);      // ausgeschaltet: kein Treten
-        Assert.Equal(new[] { "+Play", "-Play" }, _events);
+        Assert.Equal(new[] { "+PlayHold", "-PlayHold" }, _events);
     }
 
     [Fact]
     public void Abziehen_waehrend_getreten_laesst_los()
     {
-        var play = new PedalBinding { Action = PlayerAction.Play, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
+        var play = new PedalBinding { Action = PlayerAction.PlayHold, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 0, Mask = 0x02 };
         _decoder.Bindings = new[] { play };
         Send(Philips, 0x02);
         _decoder.DeviceRemoved(Philips);
-        Assert.Equal(new[] { "+Play", "-Play" }, _events);
+        Assert.Equal(new[] { "+PlayHold", "-PlayHold" }, _events);
     }
 
     [Fact]
     public void Serieller_Fusschalter_mit_vier_Leitungen()
     {
         Send(Serial, 0x00);
-        var cts = Learn(PlayerAction.Rewind, () => { Send(Serial, 0x10); Send(Serial, 0x00); });
-        var dsr = Learn(PlayerAction.Play, () => { Send(Serial, 0x20); Send(Serial, 0x00); });
-        var ri = Learn(PlayerAction.FastForward, () => { Send(Serial, 0x40); Send(Serial, 0x00); });
+        var cts = Learn(PlayerAction.RewindHold, () => { Send(Serial, 0x10); Send(Serial, 0x00); });
+        var dsr = Learn(PlayerAction.PlayHold, () => { Send(Serial, 0x20); Send(Serial, 0x00); });
+        var ri = Learn(PlayerAction.ForwardHold, () => { Send(Serial, 0x40); Send(Serial, 0x00); });
         var dcd = Learn(PlayerAction.Stop, () => { Send(Serial, 0x80); Send(Serial, 0x00); });
         Assert.Equal("COM1", dsr.Port);
         Assert.Equal("Serieller Fußschalter COM1 – Leitung DSR", dsr.Describe());
@@ -226,12 +226,12 @@ public class PedalDecoderTests
         Send(Serial, 0x60);
         Send(Serial, 0x20);
         Send(Serial, 0x00);
-        Assert.Equal(new[] { "+Play", "+FastForward", "-FastForward", "-Play" }, _events);
+        Assert.Equal(new[] { "+PlayHold", "+ForwardHold", "-ForwardHold", "-PlayHold" }, _events);
 
         // Gleicher Anschluss in anderer Schreibweise
         _events.Clear();
         Send(Serial with { Port = "com1", InstanceKey = "com:com1" }, 0x10);
-        Assert.Equal(new[] { "+Rewind" }, _events);
+        Assert.Equal(new[] { "+RewindHold" }, _events);
     }
 
     [Fact]
@@ -239,19 +239,89 @@ public class PedalDecoderTests
     {
         var settings = new AppSettings
         {
-            PedalBindings =
+            PedalBindings = new List<PedalBinding>
             {
-                new PedalBinding { Action = PlayerAction.Play, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 1, Mask = 2, DeviceName = "Philips" },
-                new PedalBinding { Action = PlayerAction.Rewind, Port = "COM3", Mask = 0x10 },
+                new PedalBinding { Action = PlayerAction.PlayHold, VendorId = 0x0911, ProductId = 0x1844, ByteIndex = 1, Mask = 2, DeviceName = "Philips" },
+                new PedalBinding { Action = PlayerAction.RewindHold, Port = "COM3", Mask = 0x10 },
             },
             SerialPort = "COM3",
         };
         var copy = settings.Clone();
         Assert.Equal(2, copy.PedalBindings.Count);
-        Assert.Equal(PlayerAction.Play, copy.PedalBindings[0].Action);
+        Assert.Equal(PlayerAction.PlayHold, copy.PedalBindings[0].Action);
         Assert.Null(copy.PedalBindings[0].Port);
         Assert.Equal("COM3", copy.PedalBindings[1].Port);
         Assert.Equal("COM3", copy.SerialPort);
         Assert.Equal(7, copy.KeyBindings.Count);
+    }
+
+    [Fact]
+    public void Noch_nicht_angelernte_Pedale_loesen_nie_aus()
+    {
+        // Funktion gewählt, Signal noch nicht angelernt (Maske 0 würde sonst auf jeden Bericht passen).
+        _decoder.Bindings = AppSettings.PedalPreset(AppSettings.PedalLayout.Hold);
+        Send(Philips, 0x00);
+        Send(Philips, 0xFF);
+        Send(Serial, 0x10);
+        Assert.Empty(_events);
+    }
+
+    [Fact]
+    public void Standard_sind_vier_Pedale_mit_Halten_Belegung()
+    {
+        var s = new AppSettings();
+        Assert.Equal(
+            new[] { PlayerAction.RewindHold, PlayerAction.PlayHold, PlayerAction.ForwardHold, PlayerAction.JumpBack },
+            s.PedalBindings.Select(b => b.Action));
+        Assert.All(s.PedalBindings, b => Assert.False(b.IsLearned));
+        Assert.Equal(
+            new[] { PlayerAction.JumpBack, PlayerAction.PlayToggle, PlayerAction.JumpForward, PlayerAction.Stop },
+            AppSettings.PresetActions(AppSettings.PedalLayout.Toggle));
+    }
+
+    [Fact]
+    public void Einstellungen_der_Vorversion_werden_uebernommen()
+    {
+        const string v1 = """
+            {
+              "KeyboardPlayMode": "Toggle",
+              "PedalPlayMode": "Hold",
+              "KeyBindings": [ { "Action": "Play", "VirtualKey": 120 }, { "Action": "Rewind", "VirtualKey": 118 } ],
+              "PedalBindings": [
+                { "Action": "Rewind", "VendorId": 2321, "ProductId": 6212, "ByteIndex": 0, "Mask": 1 },
+                { "Action": "Play", "VendorId": 2321, "ProductId": 6212, "ByteIndex": 0, "Mask": 2 },
+                { "Action": "FastForward", "VendorId": 2321, "ProductId": 6212, "ByteIndex": 0, "Mask": 4 }
+              ],
+              "Files": [ { "Path": "C:\\Diktate\\a.mp3", "PositionSeconds": 12.5 } ]
+            }
+            """;
+        var s = AppSettings.FromJson(v1);
+        Assert.Equal(new[] { PlayerAction.PlayToggle, PlayerAction.RewindHold }, s.KeyBindings.Select(k => k.Action));
+        Assert.Equal(new[] { PlayerAction.RewindHold, PlayerAction.PlayHold, PlayerAction.ForwardHold }, s.PedalBindings.Select(p => p.Action));
+        Assert.All(s.PedalBindings, b => Assert.True(b.IsLearned));
+        Assert.Single(s.Files); // Dateiliste bleibt erhalten
+        Assert.Null(s.KeyboardPlayMode);
+        Assert.DoesNotContain("PlayMode", s.ToJson());
+
+        // Vorversion mit „Wiedergabe umschalten“ am Pedal
+        var toggle = AppSettings.FromJson("""{ "PedalPlayMode": "Toggle", "PedalBindings": [ { "Action": "Play", "Mask": 2 } ] }""");
+        Assert.Equal(PlayerAction.PlayToggle, toggle.PedalBindings[0].Action);
+    }
+
+    [Fact]
+    public void Gespeicherte_Pedalfunktionen_ohne_Signal_bleiben_erhalten()
+    {
+        var s = new AppSettings
+        {
+            PedalBindings = new List<PedalBinding>
+            {
+                new() { Action = PlayerAction.JumpForward },
+                new() { Action = PlayerAction.PlayToggle, VendorId = 0x0911, ProductId = 0x1844, Mask = 2 },
+            },
+        };
+        var loaded = AppSettings.FromJson(s.ToJson());
+        Assert.Equal(new[] { PlayerAction.JumpForward, PlayerAction.PlayToggle }, loaded.PedalBindings.Select(b => b.Action));
+        Assert.False(loaded.PedalBindings[0].IsLearned);
+        Assert.True(loaded.PedalBindings[1].IsLearned);
     }
 }

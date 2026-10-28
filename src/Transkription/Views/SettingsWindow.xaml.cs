@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -16,9 +17,10 @@ public partial class SettingsWindow : Window
     private readonly PedalDecoder _pedals;
     private readonly FootPedal? _pedal;
     private readonly Action<string?> _selectSerialPort;
-    private readonly List<ActionRow> _rows;
-    private ActionRow? _capturingKey;
-    private ActionRow? _learningPedal;
+    private readonly List<KeyRow> _rows;
+    private readonly ObservableCollection<PedalRow> _pedalRows = new();
+    private KeyRow? _capturingKey;
+    private PedalRow? _learningPedal;
 
     public SettingsWindow(AppSettings settings, HotkeyMatcher keys, PedalDecoder pedals, FootPedal? pedal,
         Action<string?> selectSerialPort)
@@ -30,15 +32,20 @@ public partial class SettingsWindow : Window
         _pedal = pedal;
         _selectSerialPort = selectSerialPort;
 
-        _rows = PlayerActions.All.Select(a => new ActionRow(a)
+        _rows = PlayerActions.All.Select(a => new KeyRow(a)
         {
             Key = settings.KeyBindings.FirstOrDefault(b => b.Action == a),
-            Pedal = settings.PedalBindings.FirstOrDefault(b => b.Action == a),
         }).ToList();
-        Rows.ItemsSource = _rows;
+        KeyRows.ItemsSource = _rows;
 
-        PedalModeBox.SelectedIndex = settings.PedalPlayMode == PlayMode.Hold ? 0 : 1;
-        KeyModeBox.SelectedIndex = settings.KeyboardPlayMode == PlayMode.Hold ? 0 : 1;
+        // Ohne gespeicherte Pedale vier Pedale mit der üblichen Belegung vorschlagen.
+        var savedPedals = settings.PedalBindings.Count > 0
+            ? settings.PedalBindings
+            : AppSettings.PedalPreset(AppSettings.PedalLayout.Hold);
+        foreach (var b in savedPedals)
+            _pedalRows.Add(new PedalRow { Action = b.Action, Signal = b.IsLearned ? b : null });
+        Renumber();
+        PedalRows.ItemsSource = _pedalRows;
         BackstepBox.Text = Format(settings.BackstepSeconds);
         SkipBox.Text = Format(settings.SkipSeconds);
         WindBox.Text = Format(settings.WindSpeed);
@@ -99,7 +106,7 @@ public partial class SettingsWindow : Window
 
     // ---------- Tasten ----------
 
-    private static ActionRow RowOf(object sender) => (ActionRow)((FrameworkElement)sender).DataContext;
+    private static KeyRow RowOf(object sender) => (KeyRow)((FrameworkElement)sender).DataContext;
 
     private void CaptureKey_Click(object sender, RoutedEventArgs e)
     {
@@ -142,23 +149,30 @@ public partial class SettingsWindow : Window
 
     // ---------- Fußschalter ----------
 
+    private static PedalRow PedalOf(object sender) => (PedalRow)((FrameworkElement)sender).DataContext;
+
+    private void Renumber()
+    {
+        for (var i = 0; i < _pedalRows.Count; i++) _pedalRows[i].Number = i + 1;
+    }
+
     private void LearnPedal_Click(object sender, RoutedEventArgs e)
     {
-        var row = RowOf(sender);
+        var row = PedalOf(sender);
         var wasLearning = ReferenceEquals(_learningPedal, row);
         StopCapturing();
         if (wasLearning) return;
 
         _learningPedal = row;
-        row.LearningPedal = true;
+        row.Learning = true;
         _pedals.BeginLearn(binding =>
         {
-            row.LearningPedal = false;
+            row.Learning = false;
             _learningPedal = null;
-            binding.Action = row.Action;
-            foreach (var other in _rows.Where(r => r != row && r.Pedal != null && SamePedal(r.Pedal, binding)))
-                other.Pedal = null;
-            row.Pedal = binding;
+            // Ein Pedal-Signal gehört immer nur zu einem Pedal.
+            foreach (var other in _pedalRows.Where(r => r != row && r.Signal != null && SamePedal(r.Signal, binding)))
+                other.Signal = null;
+            row.Signal = binding;
         });
     }
 
@@ -166,21 +180,41 @@ public partial class SettingsWindow : Window
         a.VendorId == b.VendorId && a.ProductId == b.ProductId && a.Port == b.Port &&
         a.ByteIndex == b.ByteIndex && a.Mask == b.Mask;
 
-    private void ClearPedal_Click(object sender, RoutedEventArgs e)
+    private void RemovePedal_Click(object sender, RoutedEventArgs e)
     {
         StopCapturing();
-        RowOf(sender).Pedal = null;
+        _pedalRows.Remove(PedalOf(sender));
+        Renumber();
+    }
+
+    private void AddPedal_Click(object sender, RoutedEventArgs e)
+    {
+        StopCapturing();
+        _pedalRows.Add(new PedalRow { Action = PlayerAction.None });
+        Renumber();
+    }
+
+    private void PresetHold_Click(object sender, RoutedEventArgs e) => ApplyPreset(AppSettings.PedalLayout.Hold);
+
+    private void PresetToggle_Click(object sender, RoutedEventArgs e) => ApplyPreset(AppSettings.PedalLayout.Toggle);
+
+    /// <summary>Setzt nur die Funktionen; bereits angelernte Signale bleiben erhalten.</summary>
+    private void ApplyPreset(AppSettings.PedalLayout layout)
+    {
+        StopCapturing();
+        var actions = AppSettings.PresetActions(layout);
+        while (_pedalRows.Count < actions.Length) _pedalRows.Add(new PedalRow());
+        for (var i = 0; i < _pedalRows.Count; i++)
+            _pedalRows[i].Action = i < actions.Length ? actions[i] : PlayerAction.None;
+        Renumber();
     }
 
     private void StopCapturing()
     {
         _keys.CancelCapture();
         _pedals.CancelLearn();
-        foreach (var r in _rows)
-        {
-            r.CapturingKey = false;
-            r.LearningPedal = false;
-        }
+        foreach (var r in _rows) r.CapturingKey = false;
+        foreach (var r in _pedalRows) r.Learning = false;
         _learningPedal = null;
         _capturingKey = null;
     }
@@ -205,23 +239,21 @@ public partial class SettingsWindow : Window
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
         if (!TryRead(BackstepBox, 0, 30, "Automatischer Rücksprung", out var backstep)) return;
-        if (!TryRead(SkipBox, 0, 60, "Sprung bei kurzem Antippen", out var skip)) return;
-        if (!TryRead(WindBox, 1, 30, "Spulgeschwindigkeit", out var wind)) return;
+        if (!TryRead(SkipBox, 0.5, 60, "Sprungweite", out var skip)) return;
+        if (!TryRead(WindBox, 1.5, 30, "Geschwindigkeit für schnelles Spulen", out var wind)) return;
         if (!TryRead(SpeedStepBox, 1, 100, "Schrittweite", out var step)) return;
 
         _settings.BackstepSeconds = backstep;
         _settings.SkipSeconds = skip;
         _settings.WindSpeed = wind;
         _settings.SpeedStepPercent = (int)Math.Round(step);
-        _settings.PedalPlayMode = PedalModeBox.SelectedIndex == 0 ? PlayMode.Hold : PlayMode.Toggle;
-        _settings.KeyboardPlayMode = KeyModeBox.SelectedIndex == 0 ? PlayMode.Hold : PlayMode.Toggle;
         _settings.RememberPositions = RememberBox.IsChecked == true;
         _settings.HotkeysEnabled = HotkeysBox.IsChecked == true;
         _settings.MinimizeToTray = TrayBox.IsChecked == true;
         _settings.AlwaysOnTop = TopmostBox.IsChecked == true;
         _settings.SerialPort = SelectedSerialPort;
         _settings.KeyBindings = _rows.Where(r => r.Key != null).Select(r => r.Key!).ToList();
-        _settings.PedalBindings = _rows.Where(r => r.Pedal != null).Select(r => r.Pedal!).ToList();
+        _settings.PedalBindings = _pedalRows.Select(r => r.ToBinding()).ToList();
 
         try
         {
@@ -237,15 +269,13 @@ public partial class SettingsWindow : Window
         DialogResult = true;
     }
 
-    /// <summary>Eine Zeile der Belegungstabelle.</summary>
-    private sealed class ActionRow : INotifyPropertyChanged
+    /// <summary>Eine Zeile der Tastenbelegung.</summary>
+    private sealed class KeyRow : Observable
     {
         private KeyBinding? _key;
-        private PedalBinding? _pedal;
         private bool _capturingKey;
-        private bool _learningPedal;
 
-        public ActionRow(PlayerAction action) => Action = action;
+        public KeyRow(PlayerAction action) => Action = action;
 
         public PlayerAction Action { get; }
         public string Name => PlayerActions.DisplayName(Action);
@@ -260,16 +290,6 @@ public partial class SettingsWindow : Window
             }
         }
 
-        public PedalBinding? Pedal
-        {
-            get => _pedal;
-            set
-            {
-                _pedal = value;
-                Changed(nameof(PedalText));
-            }
-        }
-
         public bool CapturingKey
         {
             get => _capturingKey;
@@ -281,25 +301,89 @@ public partial class SettingsWindow : Window
             }
         }
 
-        public bool LearningPedal
+        public string KeyText => CapturingKey ? "Jetzt Taste drücken (Esc = Abbruch)…" : (Key != null ? KeyNames.Describe(Key) : null) ?? "–";
+        public string KeyButtonText => CapturingKey ? "Abbrechen" : "Taste ändern";
+    }
+
+    public sealed record FunctionOption(PlayerAction Action, string Name);
+
+    /// <summary>Ein Pedal mit frei wählbarer Funktion.</summary>
+    private sealed class PedalRow : Observable
+    {
+        public static readonly IReadOnlyList<FunctionOption> AllOptions =
+            PlayerActions.All.Prepend(PlayerAction.None)
+                .Select(a => new FunctionOption(a, PlayerActions.DisplayName(a))).ToList();
+
+        private int _number;
+        private PlayerAction _action;
+        private PedalBinding? _signal;
+        private bool _learning;
+
+        public IReadOnlyList<FunctionOption> Options => AllOptions;
+
+        public int Number
         {
-            get => _learningPedal;
+            get => _number;
             set
             {
-                _learningPedal = value;
-                Changed(nameof(PedalButtonText));
-                Changed(nameof(PedalText));
+                _number = value;
+                Changed(nameof(Title));
             }
         }
 
-        public string KeyText => CapturingKey ? "Jetzt Taste drücken (Esc = Abbruch)…" : (Key != null ? KeyNames.Describe(Key) : null) ?? "–";
-        public string PedalText => LearningPedal ? "Pedal treten und loslassen (ggf. zweimal)…" : Pedal?.Describe() ?? "–";
-        public string KeyButtonText => CapturingKey ? "Abbrechen" : "Taste ändern";
-        public string PedalButtonText => LearningPedal ? "Abbrechen" : "Anlernen";
+        public string Title => $"Pedal {Number}";
 
+        public PlayerAction Action
+        {
+            get => _action;
+            set
+            {
+                _action = value;
+                Changed();
+            }
+        }
+
+        public PedalBinding? Signal
+        {
+            get => _signal;
+            set
+            {
+                _signal = value;
+                Changed(nameof(SignalText));
+            }
+        }
+
+        public bool Learning
+        {
+            get => _learning;
+            set
+            {
+                _learning = value;
+                Changed(nameof(SignalText));
+                Changed(nameof(LearnButtonText));
+            }
+        }
+
+        public string SignalText => Learning ? "Pedal treten und loslassen (ggf. zweimal)…" : Signal?.Describe() ?? "noch nicht angelernt";
+        public string LearnButtonText => Learning ? "Abbrechen" : "Anlernen";
+
+        public PedalBinding ToBinding() => new()
+        {
+            Action = Action,
+            VendorId = Signal?.VendorId ?? 0,
+            ProductId = Signal?.ProductId ?? 0,
+            Port = Signal?.Port,
+            ByteIndex = Signal?.ByteIndex ?? 0,
+            Mask = Signal?.Mask ?? 0,
+            DeviceName = Signal?.DeviceName ?? "",
+        };
+    }
+
+    private abstract class Observable : INotifyPropertyChanged
+    {
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        private void Changed([CallerMemberName] string? name = null) =>
+        protected void Changed([CallerMemberName] string? name = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
