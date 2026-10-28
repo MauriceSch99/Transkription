@@ -1,0 +1,42 @@
+name: Windows-Build
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Veröffentlichen (eine einzelne .exe, ohne Installation lauffähig)
+        run: >
+          dotnet publish src/Transkription/Transkription.csproj -c Release -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=none
+          -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Transkription-win-x64
+          path: publish/Transkription.exe
+
+      - name: Release anlegen (nur bei Tags wie v1.0.0)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/Transkription.exe

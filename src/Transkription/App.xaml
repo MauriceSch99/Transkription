@@ -1,0 +1,97 @@
+<Application x:Class="Transkription.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <FontFamily x:Key="IconFont">Segoe MDL2 Assets</FontFamily>
+
+        <SolidColorBrush x:Key="PanelBrush" Color="#E9ECF1" />
+        <SolidColorBrush x:Key="PanelBorderBrush" Color="#C3C9D3" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#2060A8" />
+        <SolidColorBrush x:Key="DisplayBrush" Color="#16202C" />
+        <SolidColorBrush x:Key="DisplayTextBrush" Color="#7FE0A0" />
+
+        <!-- Große Schaltflächen der Laufwerkssteuerung (wie bei Express Scribe unten im Fenster) -->
+        <Style x:Key="TransportButton" TargetType="Button">
+            <Setter Property="Width" Value="56" />
+            <Setter Property="Height" Value="48" />
+            <Setter Property="Margin" Value="3,0" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="Foreground" Value="#1D2733" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#DCE8F7" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#BCD3F0" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#9AA3AE" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PlayButton" TargetType="Button" BasedOn="{StaticResource TransportButton}">
+            <Setter Property="Width" Value="72" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+            <Setter Property="BorderBrush" Value="#174A85" />
+        </Style>
+
+        <!-- Werkzeugleiste oben -->
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#DCE8F7" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A9C4E6" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToolIcon" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+        </Style>
+
+        <Style x:Key="ToolLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+    </Application.Resources>
+</Application>

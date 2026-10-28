@@ -1,0 +1,202 @@
+<Window x:Class="Transkription.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Transkription"
+        Icon="Assets/app.ico"
+        Width="860" Height="600" MinWidth="640" MinHeight="460"
+        AllowDrop="True"
+        Background="{StaticResource PanelBrush}">
+
+    <Window.CommandBindings>
+        <CommandBinding Command="ApplicationCommands.Open" Executed="AddFiles_Click" />
+    </Window.CommandBindings>
+    <Window.InputBindings>
+        <KeyBinding Command="ApplicationCommands.Open" Key="O" Modifiers="Control" />
+    </Window.InputBindings>
+
+    <DockPanel>
+        <!-- Menü -->
+        <Menu DockPanel.Dock="Top" Background="White">
+            <MenuItem Header="_Datei">
+                <MenuItem Header="Dateien _hinzufügen…" InputGestureText="Strg+O" Click="AddFiles_Click" />
+                <MenuItem Header="Ausgewählte _entfernen" InputGestureText="Entf" Click="RemoveFiles_Click" />
+                <MenuItem Header="Liste _leeren" Click="ClearList_Click" />
+                <Separator />
+                <MenuItem Header="Im _Explorer anzeigen" Click="ShowInExplorer_Click" />
+                <Separator />
+                <MenuItem Header="_Beenden" Click="Exit_Click" />
+            </MenuItem>
+            <MenuItem Header="_Wiedergabe">
+                <MenuItem Header="_Wiedergabe / Pause" Click="Play_Click" />
+                <MenuItem Header="_Stopp" Click="Stop_Click" />
+                <MenuItem Header="Zum _Anfang" Click="Start_Click" />
+                <Separator />
+                <MenuItem Header="_Langsamer" Click="SpeedDown_Click" />
+                <MenuItem Header="S_chneller" Click="SpeedUp_Click" />
+                <MenuItem Header="_Normale Geschwindigkeit" Click="SpeedNormal_Click" />
+            </MenuItem>
+            <MenuItem Header="E_xtras">
+                <MenuItem Header="_Einstellungen…" Click="Settings_Click" />
+                <Separator />
+                <MenuItem x:Name="HotkeysMenu" Header="_Tasten und Fußschalter aktiv" IsCheckable="True" Click="HotkeysMenu_Click" />
+                <MenuItem x:Name="TopmostMenu" Header="_Immer im Vordergrund" IsCheckable="True" Click="TopmostMenu_Click" />
+            </MenuItem>
+            <MenuItem Header="_Hilfe">
+                <MenuItem Header="_Bedienung" Click="Help_Click" />
+                <MenuItem Header="Ü_ber Transkription" Click="About_Click" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Werkzeugleiste -->
+        <Border DockPanel.Dock="Top" Background="White" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,1">
+            <StackPanel Orientation="Horizontal" Margin="4,2">
+                <Button Style="{StaticResource ToolButton}" Click="AddFiles_Click" ToolTip="Audiodateien zur Liste hinzufügen (Strg+O)">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToolIcon}" Text="&#xE8E5;" />
+                        <TextBlock Style="{StaticResource ToolLabel}" Text="Laden" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="RemoveButton" Style="{StaticResource ToolButton}" Click="RemoveFiles_Click" ToolTip="Ausgewählte Dateien aus der Liste entfernen (die Dateien selbst bleiben erhalten)">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToolIcon}" Text="&#xE74D;" />
+                        <TextBlock Style="{StaticResource ToolLabel}" Text="Entfernen" />
+                    </StackPanel>
+                </Button>
+                <Rectangle Width="1" Margin="6,4" Fill="{StaticResource PanelBorderBrush}" />
+                <Button Style="{StaticResource ToolButton}" Click="Settings_Click" ToolTip="Tasten, Fußschalter und Wiedergabe einstellen">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToolIcon}" Text="&#xE713;" />
+                        <TextBlock Style="{StaticResource ToolLabel}" Text="Einstellungen" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolButton}" Click="Help_Click" ToolTip="Bedienung">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToolIcon}" Text="&#xE897;" />
+                        <TextBlock Style="{StaticResource ToolLabel}" Text="Hilfe" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+
+        <!-- Statusleiste -->
+        <StatusBar DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0">
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE765;" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="HotkeyStatus" />
+                </StackPanel>
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock FontFamily="{StaticResource IconFont}" Text="&#xE88E;" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock x:Name="PedalStatus" />
+                </StackPanel>
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock x:Name="LastInput" Foreground="#4A5563" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- Laufwerkssteuerung -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="0,1,0,0" Padding="12,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Anzeige -->
+                <Border Grid.Row="0" Background="{StaticResource DisplayBrush}" CornerRadius="6" Padding="14,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock x:Name="CurrentFileText" Foreground="#C8D3E0" FontSize="13" TextTrimming="CharacterEllipsis"
+                                       Text="Keine Datei geladen – Datei mit „Laden“ hinzufügen oder in das Fenster ziehen." />
+                            <TextBlock x:Name="StateText" Foreground="#7F8C9C" FontSize="12" Margin="0,3,0,0" Text="" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="PositionText" FontFamily="Consolas" FontSize="34" Foreground="{StaticResource DisplayTextBrush}" Text="00:00:00.0" />
+                            <TextBlock x:Name="DurationText" FontFamily="Consolas" FontSize="16" Foreground="#5E8C70" Margin="10,0,0,4" VerticalAlignment="Bottom" Text="/ 00:00:00" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Positionsregler -->
+                <Slider Grid.Row="1" x:Name="PositionSlider" Margin="0,10,0,6" Minimum="0" Maximum="1"
+                        IsMoveToPointEnabled="True" Focusable="False" ValueChanged="PositionSlider_ValueChanged" />
+
+                <!-- Tasten, Geschwindigkeit, Lautstärke -->
+                <Grid Grid.Row="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <Button Style="{StaticResource TransportButton}" Content="&#xE892;" Click="Start_Click" ToolTip="Zum Anfang" />
+                        <Button x:Name="RewindButton" Style="{StaticResource TransportButton}" Content="&#xEB9E;" ToolTip="Zurückspulen (gedrückt halten zum Spulen)" />
+                        <Button Style="{StaticResource TransportButton}" Content="&#xE71A;" Click="Stop_Click" ToolTip="Stopp" />
+                        <Button x:Name="PlayButton" Style="{StaticResource PlayButton}" Content="&#xE768;" Click="Play_Click" ToolTip="Wiedergabe / Pause" />
+                        <Button x:Name="ForwardButton" Style="{StaticResource TransportButton}" Content="&#xEB9D;" ToolTip="Vorspulen (gedrückt halten zum Spulen)" />
+                    </StackPanel>
+
+                    <Grid Grid.Column="2" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="52" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Geschwindigkeit" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <Slider Grid.Row="0" Grid.Column="1" x:Name="SpeedSlider" Minimum="30" Maximum="300" TickFrequency="10"
+                                IsSnapToTickEnabled="True" Focusable="False" VerticalAlignment="Center" ValueChanged="SpeedSlider_ValueChanged"
+                                ToolTip="Doppelklick: normale Geschwindigkeit" MouseDoubleClick="SpeedNormal_Click" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" x:Name="SpeedText" Text="100 %" VerticalAlignment="Center" Margin="8,0,0,0" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Lautstärke" VerticalAlignment="Center" Margin="0,8,8,0" />
+                        <Slider Grid.Row="1" Grid.Column="1" x:Name="VolumeSlider" Minimum="0" Maximum="1" Margin="0,8,0,0"
+                                Focusable="False" VerticalAlignment="Center" ValueChanged="VolumeSlider_ValueChanged" />
+                        <TextBlock Grid.Row="1" Grid.Column="2" x:Name="VolumeText" Text="80 %" VerticalAlignment="Center" Margin="8,8,0,0" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Dateiliste (Diktate) -->
+        <ListView x:Name="FileList" Margin="8" SelectionMode="Extended" BorderBrush="{StaticResource PanelBorderBrush}"
+                  SelectionChanged="FileList_SelectionChanged" KeyDown="FileList_KeyDown" MouseDoubleClick="FileList_MouseDoubleClick">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding" Value="2,3" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Exists}" Value="False">
+                            <Setter Property="Foreground" Value="#A33" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Datei" Width="300" DisplayMemberBinding="{Binding Name}" />
+                    <GridViewColumn Header="Dauer" Width="80" DisplayMemberBinding="{Binding DurationText}" />
+                    <GridViewColumn Header="Position" Width="80" DisplayMemberBinding="{Binding PositionText}" />
+                    <GridViewColumn Header="Ordner" Width="340" DisplayMemberBinding="{Binding Folder}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

@@ -1,0 +1,142 @@
+<Window x:Class="Transkription.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Einstellungen – Transkription"
+        Width="760" Height="560" MinWidth="620" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource PanelBrush}">
+    <DockPanel Margin="10">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="OK" Width="90" Height="28" IsDefault="True" Click="Ok_Click" Margin="0,0,8,0" />
+            <Button Content="Abbrechen" Width="90" Height="28" IsCancel="True" />
+        </StackPanel>
+
+        <TabControl>
+            <!-- Tasten und Fußschalter -->
+            <TabItem Header="Tasten &amp; Fußschalter">
+                <DockPanel Margin="10">
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,10">
+                        Tasten und Fußschalter wirken systemweit – auch wenn gerade in Word oder einem anderen Programm geschrieben wird.
+                        Zum Einrichten des Fußschalters bei der gewünschten Aktion auf <Bold>Anlernen</Bold> klicken und das Pedal
+                        treten und wieder loslassen (falls nötig ein zweites Mal). Fußschalter, die sich als Tastatur ausgeben, werden stattdessen über <Bold>Taste ändern</Bold> eingerichtet.
+                    </TextBlock>
+                    <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="10,3"
+                            Content="Standardtasten wiederherstellen" Click="ResetKeys_Click" />
+
+                    <Border BorderBrush="{StaticResource PanelBorderBrush}" BorderThickness="1" Background="White">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <Grid Background="#F3F5F8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="170" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Aktion" FontWeight="SemiBold" Margin="8,6" />
+                                    <TextBlock Grid.Column="1" Text="Taste" FontWeight="SemiBold" Margin="8,6" />
+                                    <TextBlock Grid.Column="2" Text="Fußschalter" FontWeight="SemiBold" Margin="8,6" />
+                                </Grid>
+                                <ItemsControl x:Name="Rows">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="#E4E7EC" BorderThickness="0,1,0,0">
+                                                <Grid Margin="0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="170" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" Margin="8,0" />
+                                                    <DockPanel Grid.Column="1" Margin="8,0">
+                                                        <Button DockPanel.Dock="Right" Content="✕" Width="24" Margin="4,0,0,0" ToolTip="Taste entfernen" Click="ClearKey_Click" />
+                                                        <Button DockPanel.Dock="Right" Content="{Binding KeyButtonText}" Width="96" Margin="4,0,0,0" Click="CaptureKey_Click" />
+                                                        <TextBlock Text="{Binding KeyText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    </DockPanel>
+                                                    <DockPanel Grid.Column="2" Margin="8,0">
+                                                        <Button DockPanel.Dock="Right" Content="✕" Width="24" Margin="4,0,8,0" ToolTip="Pedal entfernen" Click="ClearPedal_Click" />
+                                                        <Button DockPanel.Dock="Right" Content="{Binding PedalButtonText}" Width="96" Margin="4,0,0,0" Click="LearnPedal_Click" />
+                                                        <TextBlock Text="{Binding PedalText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding PedalText}" />
+                                                    </DockPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- Wiedergabe -->
+            <TabItem Header="Wiedergabe">
+                <Grid Margin="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Wiedergabe-Pedal:" VerticalAlignment="Center" Margin="0,6" />
+                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="PedalModeBox" Width="320" HorizontalAlignment="Left" Margin="0,6">
+                        <ComboBoxItem Content="Spielt, solange das Pedal getreten wird" />
+                        <ComboBoxItem Content="Jeder Tritt schaltet Wiedergabe / Pause um" />
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="1" Text="Wiedergabe-Taste:" VerticalAlignment="Center" Margin="0,6" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" x:Name="KeyModeBox" Width="320" HorizontalAlignment="Left" Margin="0,6">
+                        <ComboBoxItem Content="Spielt, solange die Taste gedrückt wird" />
+                        <ComboBoxItem Content="Jeder Druck schaltet Wiedergabe / Pause um" />
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="2" Text="Automatischer Rücksprung beim Anhalten (Sek.):" VerticalAlignment="Center" Margin="0,6" />
+                    <TextBox Grid.Row="2" Grid.Column="1" x:Name="BackstepBox" Width="80" HorizontalAlignment="Left" Margin="0,6" />
+
+                    <TextBlock Grid.Row="3" Text="Sprung bei kurzem Antippen von Spulen (Sek.):" VerticalAlignment="Center" Margin="0,6" />
+                    <TextBox Grid.Row="3" Grid.Column="1" x:Name="SkipBox" Width="80" HorizontalAlignment="Left" Margin="0,6" />
+
+                    <TextBlock Grid.Row="4" Text="Spulgeschwindigkeit beim Halten (×):" VerticalAlignment="Center" Margin="0,6" />
+                    <TextBox Grid.Row="4" Grid.Column="1" x:Name="WindBox" Width="80" HorizontalAlignment="Left" Margin="0,6" />
+
+                    <TextBlock Grid.Row="5" Text="Schrittweite für Langsamer / Schneller (%):" VerticalAlignment="Center" Margin="0,6" />
+                    <TextBox Grid.Row="5" Grid.Column="1" x:Name="SpeedStepBox" Width="80" HorizontalAlignment="Left" Margin="0,6" />
+
+                    <CheckBox Grid.Row="6" Grid.ColumnSpan="2" x:Name="RememberBox" Margin="0,10"
+                              Content="Position jeder Datei merken und beim nächsten Öffnen dort fortsetzen" />
+                </Grid>
+            </TabItem>
+
+            <!-- Allgemein -->
+            <TabItem Header="Allgemein">
+                <StackPanel Margin="14">
+                    <CheckBox x:Name="HotkeysBox" Margin="0,6" Content="Tasten und Fußschalter aktiv" />
+                    <CheckBox x:Name="TrayBox" Margin="0,6"
+                              Content="Beim Schließen oder Minimieren im Infobereich (neben der Uhr) weiterlaufen" />
+                    <CheckBox x:Name="TopmostBox" Margin="0,6" Content="Fenster immer im Vordergrund" />
+                    <CheckBox x:Name="AutostartBox" Margin="0,6" Content="Mit Windows starten (im Infobereich)" />
+                </StackPanel>
+            </TabItem>
+
+            <!-- Geräte -->
+            <TabItem Header="Geräte">
+                <DockPanel Margin="10">
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Erkannte USB-Eingabegeräte (HID). Ein angeschlossener Fußschalter sollte hier erscheinen. Wird er nicht angezeigt, gibt er sich vermutlich als Tastatur aus – dann im ersten Reiter „Taste ändern“ verwenden." />
+                    <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,8,0,0" Padding="10,3"
+                            Content="Neu suchen" Click="Rescan_Click" />
+                    <ListBox x:Name="DeviceList" />
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
