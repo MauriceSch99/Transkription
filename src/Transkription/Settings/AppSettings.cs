@@ -22,28 +22,22 @@ public sealed class KeyBinding
     public bool Alt { get; set; }
     public bool Shift { get; set; }
     public bool Win { get; set; }
-
-    public string Describe()
-    {
-        var parts = new List<string>();
-        if (Ctrl) parts.Add("Strg");
-        if (Alt) parts.Add("Alt");
-        if (Shift) parts.Add("Umschalt");
-        if (Win) parts.Add("Win");
-        parts.Add(KeyNames.Describe(VirtualKey));
-        return string.Join(" + ", parts);
-    }
 }
 
 /// <summary>
 /// Zuordnung eines Fußpedal-Knopfes zu einer Aktion. Ein Knopf wird über das Gerät
-/// (Hersteller-/Produkt-ID) und ein Bit im HID-Bericht identifiziert.
+/// (Hersteller-/Produkt-ID bei USB bzw. COM-Anschluss bei seriellen Pedalen) und ein Bit im
+/// Bericht identifiziert.
 /// </summary>
 public sealed class PedalBinding
 {
     public PlayerAction Action { get; set; }
     public int VendorId { get; set; }
     public int ProductId { get; set; }
+
+    /// <summary>COM-Anschluss bei seriellen Fußschaltern, sonst null.</summary>
+    public string? Port { get; set; }
+
     public int ByteIndex { get; set; }
     public int Mask { get; set; }
     public string DeviceName { get; set; } = "";
@@ -52,6 +46,11 @@ public sealed class PedalBinding
     {
         var bit = 0;
         while (bit < 8 && (Mask & (1 << bit)) == 0) bit++;
+        if (Port != null)
+        {
+            var line = Mask switch { 0x10 => "CTS", 0x20 => "DSR", 0x40 => "RI", 0x80 => "DCD", _ => $"Bit {bit}" };
+            return $"Serieller Fußschalter {Port} – Leitung {line}";
+        }
         var name = string.IsNullOrWhiteSpace(DeviceName) ? $"Gerät {VendorId:X4}:{ProductId:X4}" : DeviceName;
         return $"{name} – Knopf {ByteIndex * 8 + bit + 1}";
     }
@@ -87,6 +86,9 @@ public sealed class AppSettings
     public bool AlwaysOnTop { get; set; }
     public bool RememberPositions { get; set; } = true;
     public bool TrayHintShown { get; set; }
+
+    /// <summary>COM-Anschluss eines seriellen Fußschalters (leer = keiner).</summary>
+    public string SerialPort { get; set; } = "";
 
     public List<KeyBinding> KeyBindings { get; set; } = DefaultKeyBindings();
     public List<PedalBinding> PedalBindings { get; set; } = new();

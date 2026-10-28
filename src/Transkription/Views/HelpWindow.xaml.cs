@@ -20,7 +20,7 @@ public partial class HelpWindow : Window
         Heading("Aktuelle Belegung");
         foreach (var action in PlayerActions.All)
         {
-            var keys = settings.KeyBindings.Where(b => b.Action == action).Select(b => b.Describe()).ToList();
+            var keys = settings.KeyBindings.Where(b => b.Action == action).Select(KeyNames.Describe).ToList();
             var pedals = settings.PedalBindings.Where(b => b.Action == action).Select(b => b.Describe()).ToList();
             var all = keys.Concat(pedals).ToList();
             HelpText.Inlines.Add(new Bold(new Run(PlayerActions.DisplayName(action) + ": ")));
@@ -37,9 +37,10 @@ public partial class HelpWindow : Window
              "• Die Position jeder Datei wird gemerkt.");
 
         Heading("Fußschalter einrichten");
-        Text("Unter Einstellungen → „Tasten & Fußschalter“ bei der gewünschten Aktion auf „Anlernen“ klicken und das " +
+        Text("Ältere Fußschalter mit 9-poligem (seriellem) Stecker: zuerst unter Einstellungen → „Geräte“ den COM-Anschluss wählen.\n" +
+             "Unter Einstellungen → „Tasten & Fußschalter“ bei der gewünschten Aktion auf „Anlernen“ klicken und das " +
              "Pedal treten und loslassen (falls nötig ein zweites Mal). Das funktioniert mit üblichen USB-Fußschaltern (z. B. Infinity IN-USB-1/2/3, " +
-             "Olympus RS-27/28/31, Philips ACC2310/2320 und vielen anderen). Fußschalter, die sich als Tastatur ausgeben, werden " +
+             "Olympus RS-27/28/31, Philips LFH/ACC 2310/2320/2330 und vielen anderen). Fußschalter, die sich als Tastatur ausgeben, werden " +
              "über „Taste ändern“ eingerichtet.\n\n" +
              "Hinweis: Ist ein Programm, in dem geschrieben wird, „als Administrator“ gestartet, verhindert Windows, dass Tasten " +
              "dort abgefangen werden. In diesem Fall auch Transkription als Administrator starten.");

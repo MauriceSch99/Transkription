@@ -28,4 +28,10 @@
     <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="NLayer.NAudioSupport" Version="2.0.1" />
+    <PackageReference Include="SoundTouch.Net" Version="2.3.2" />
+  </ItemGroup>
+
 </Project>

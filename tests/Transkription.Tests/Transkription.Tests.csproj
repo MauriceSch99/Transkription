@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Testet die von Windows unabhängigen Teile (Audio-Engine mit echten MP3-Dateien,
+    Wiedergabelogik, Fußschalter- und Tastenauswertung). Die Quelltexte werden direkt
+    eingebunden, damit die Tests auch ohne Windows laufen.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\Transkription\Audio\IAudioOutput.cs" Link="Linked\IAudioOutput.cs" />
+    <Compile Include="..\..\src\Transkription\Audio\AudioReaders.cs" Link="Linked\AudioReaders.cs" />
+    <Compile Include="..\..\src\Transkription\Audio\PlaybackProvider.cs" Link="Linked\PlaybackProvider.cs" />
+    <Compile Include="..\..\src\Transkription\Audio\AudioEngine.cs" Link="Linked\AudioEngine.cs" />
+    <Compile Include="..\..\src\Transkription\Core\PlayerController.cs" Link="Linked\PlayerController.cs" />
+    <Compile Include="..\..\src\Transkription\Core\PlayerAction.cs" Link="Linked\PlayerAction.cs" />
+    <Compile Include="..\..\src\Transkription\Settings\AppSettings.cs" Link="Linked\AppSettings.cs" />
+    <Compile Include="..\..\src\Transkription\Input\PedalDecoder.cs" Link="Linked\PedalDecoder.cs" />
+    <Compile Include="..\..\src\Transkription\Input\HotkeyMatcher.cs" Link="Linked\HotkeyMatcher.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="TestData\*.mp3" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.Core" Version="2.2.1" />
+    <PackageReference Include="NLayer.NAudioSupport" Version="2.0.1" />
+    <PackageReference Include="SoundTouch.Net" Version="2.3.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>

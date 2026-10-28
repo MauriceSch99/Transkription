@@ -1,13 +1,20 @@
 using System.Windows.Input;
+using Transkription.Settings;
 
 namespace Transkription.Core;
 
 public static class KeyNames
 {
-    public static bool IsModifier(int vk) => vk is
-        0x10 or 0x11 or 0x12 or // Shift, Ctrl, Alt
-        0xA0 or 0xA1 or 0xA2 or 0xA3 or 0xA4 or 0xA5 or
-        0x5B or 0x5C; // Win
+    public static string Describe(Settings.KeyBinding b)
+    {
+        var parts = new List<string>();
+        if (b.Ctrl) parts.Add("Strg");
+        if (b.Alt) parts.Add("Alt");
+        if (b.Shift) parts.Add("Umschalt");
+        if (b.Win) parts.Add("Win");
+        parts.Add(Describe(b.VirtualKey));
+        return string.Join(" + ", parts);
+    }
 
     public static string Describe(int vk)
     {

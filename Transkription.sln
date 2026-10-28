@@ -1,9 +1,13 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transkription", "src\Transkription\Transkription.csproj", "{6F1C8E2A-3B7D-4E59-9A41-2C5D7B8E9F10}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3C30B044-9C68-4145-B082-6789246B432E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Transkription.Tests", "tests\Transkription.Tests\Transkription.Tests.csproj", "{BD9CE198-9664-4C38-9BD6-4753D283192E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,5 +19,12 @@ Global
 		{6F1C8E2A-3B7D-4E59-9A41-2C5D7B8E9F10}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6F1C8E2A-3B7D-4E59-9A41-2C5D7B8E9F10}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6F1C8E2A-3B7D-4E59-9A41-2C5D7B8E9F10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD9CE198-9664-4C38-9BD6-4753D283192E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD9CE198-9664-4C38-9BD6-4753D283192E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD9CE198-9664-4C38-9BD6-4753D283192E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD9CE198-9664-4C38-9BD6-4753D283192E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{BD9CE198-9664-4C38-9BD6-4753D283192E} = {3C30B044-9C68-4145-B082-6789246B432E}
 	EndGlobalSection
 EndGlobal

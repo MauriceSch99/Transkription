@@ -12,18 +12,23 @@ namespace Transkription.Views;
 public partial class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
-    private readonly KeyboardHook _keys;
+    private readonly HotkeyMatcher _keys;
+    private readonly PedalDecoder _pedals;
     private readonly FootPedal? _pedal;
+    private readonly Action<string?> _selectSerialPort;
     private readonly List<ActionRow> _rows;
     private ActionRow? _capturingKey;
     private ActionRow? _learningPedal;
 
-    public SettingsWindow(AppSettings settings, KeyboardHook keys, FootPedal? pedal)
+    public SettingsWindow(AppSettings settings, HotkeyMatcher keys, PedalDecoder pedals, FootPedal? pedal,
+        Action<string?> selectSerialPort)
     {
         InitializeComponent();
         _settings = settings;
         _keys = keys;
+        _pedals = pedals;
         _pedal = pedal;
+        _selectSerialPort = selectSerialPort;
 
         _rows = PlayerActions.All.Select(a => new ActionRow(a)
         {
@@ -55,15 +60,30 @@ public partial class SettingsWindow : Window
             FillDevices();
         }
 
+        SerialBox.Items.Add("Keiner");
+        foreach (var port in SerialPedal.PortNames()) SerialBox.Items.Add(port);
+        if (settings.SerialPort.Length > 0 && !SerialBox.Items.Contains(settings.SerialPort))
+            SerialBox.Items.Add(settings.SerialPort);
+        SerialBox.SelectedItem = settings.SerialPort.Length > 0 ? settings.SerialPort : "Keiner";
+        SerialBox.SelectionChanged += (_, _) => _selectSerialPort(SelectedSerialPort);
+
+        _pedals.ReportReceived += OnPedalReport;
         Closed += (_, _) =>
         {
             _keys.CancelCapture();
-            _pedal?.CancelLearn();
+            _pedals.CancelLearn();
+            _pedals.ReportReceived -= OnPedalReport;
             if (_pedal != null) _pedal.DevicesChanged -= FillDevices;
         };
     }
 
     public AppSettings Result => _settings;
+
+    private string SelectedSerialPort => SerialBox.SelectedItem as string is { } p && p != "Keiner" ? p : "";
+
+    /// <summary>Zeigt an, von welchem Gerät gerade Signale kommen – hilft beim Finden des Pedals.</summary>
+    private void OnPedalReport(PedalDevice device) =>
+        LastSignalText.Text = $"Letztes Signal: {device.Name}  ({DateTime.Now:HH:mm:ss})";
 
     private static string Format(double v) => v.ToString("0.##", CultureInfo.CurrentCulture);
 
@@ -124,7 +144,6 @@ public partial class SettingsWindow : Window
 
     private void LearnPedal_Click(object sender, RoutedEventArgs e)
     {
-        if (_pedal == null) return;
         var row = RowOf(sender);
         var wasLearning = ReferenceEquals(_learningPedal, row);
         StopCapturing();
@@ -132,7 +151,7 @@ public partial class SettingsWindow : Window
 
         _learningPedal = row;
         row.LearningPedal = true;
-        _pedal.BeginLearn(binding =>
+        _pedals.BeginLearn(binding =>
         {
             row.LearningPedal = false;
             _learningPedal = null;
@@ -144,7 +163,8 @@ public partial class SettingsWindow : Window
     }
 
     private static bool SamePedal(PedalBinding a, PedalBinding b) =>
-        a.VendorId == b.VendorId && a.ProductId == b.ProductId && a.ByteIndex == b.ByteIndex && a.Mask == b.Mask;
+        a.VendorId == b.VendorId && a.ProductId == b.ProductId && a.Port == b.Port &&
+        a.ByteIndex == b.ByteIndex && a.Mask == b.Mask;
 
     private void ClearPedal_Click(object sender, RoutedEventArgs e)
     {
@@ -155,7 +175,7 @@ public partial class SettingsWindow : Window
     private void StopCapturing()
     {
         _keys.CancelCapture();
-        _pedal?.CancelLearn();
+        _pedals.CancelLearn();
         foreach (var r in _rows)
         {
             r.CapturingKey = false;
@@ -199,6 +219,7 @@ public partial class SettingsWindow : Window
         _settings.HotkeysEnabled = HotkeysBox.IsChecked == true;
         _settings.MinimizeToTray = TrayBox.IsChecked == true;
         _settings.AlwaysOnTop = TopmostBox.IsChecked == true;
+        _settings.SerialPort = SelectedSerialPort;
         _settings.KeyBindings = _rows.Where(r => r.Key != null).Select(r => r.Key!).ToList();
         _settings.PedalBindings = _rows.Where(r => r.Pedal != null).Select(r => r.Pedal!).ToList();
 
@@ -271,7 +292,7 @@ public partial class SettingsWindow : Window
             }
         }
 
-        public string KeyText => CapturingKey ? "Jetzt Taste drücken (Esc = Abbruch)…" : Key?.Describe() ?? "–";
+        public string KeyText => CapturingKey ? "Jetzt Taste drücken (Esc = Abbruch)…" : (Key != null ? KeyNames.Describe(Key) : null) ?? "–";
         public string PedalText => LearningPedal ? "Pedal treten und loslassen (ggf. zweimal)…" : Pedal?.Describe() ?? "–";
         public string KeyButtonText => CapturingKey ? "Abbrechen" : "Taste ändern";
         public string PedalButtonText => LearningPedal ? "Abbrechen" : "Anlernen";

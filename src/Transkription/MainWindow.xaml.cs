@@ -6,6 +6,8 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using NAudio.Wave;
+using Transkription.Audio;
 using Transkription.Core;
 using Transkription.Input;
 using Transkription.Settings;
@@ -19,11 +21,15 @@ public partial class MainWindow : Window
 
     private AppSettings _settings;
     private readonly PlayerController _player;
-    private readonly KeyboardHook _keys = new();
+    private readonly HotkeyMatcher _keys = new();
+    private readonly KeyboardHook _hook;
+    private readonly PedalDecoder _pedals = new();
     private readonly ObservableCollection<FileItem> _files = new();
     private readonly DispatcherTimer _uiTimer;
     private readonly DispatcherTimer _lastInputTimer;
     private FootPedal? _pedal;
+    private SerialPedal? _serial;
+    private string? _serialError;
     private TrayIcon? _tray;
     private FileItem? _current;
     private bool _hookInstalled;
@@ -39,15 +45,28 @@ public partial class MainWindow : Window
         InitializeComponent();
         _updatingUi = false;
 
-        _player = new PlayerController(settings);
+        // Formate, die nicht direkt gelesen werden (M4A, WMA …), über Windows Media Foundation öffnen.
+        AudioReaders.Fallback = path => new MediaFoundationReader(path);
+        _player = new PlayerController(settings, new AudioEngine(() => new WaveOutOutput()));
         _player.MediaOpened += OnMediaOpened;
         _player.MediaFailed += OnMediaFailed;
+        _player.PlaybackFailed += OnPlaybackFailed;
         _player.StateChanged += UpdateUi;
 
         FileList.ItemsSource = _files;
 
-        _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
-        _uiTimer.Tick += (_, _) => UpdateUi();
+        _hook = new KeyboardHook(_keys);
+        _keys.ActionDown += a => OnInput(a, InputSource.Keyboard, down: true);
+        _keys.ActionUp += a => OnInput(a, InputSource.Keyboard, down: false);
+        _pedals.ActionDown += a => OnInput(a, InputSource.Pedal, down: true);
+        _pedals.ActionUp += a => OnInput(a, InputSource.Pedal, down: false);
+
+        _uiTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        _uiTimer.Tick += (_, _) =>
+        {
+            _player.Tick();
+            UpdateUi();
+        };
         _lastInputTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _lastInputTimer.Tick += (_, _) =>
         {
@@ -77,9 +96,7 @@ public partial class MainWindow : Window
         var hwnd = new WindowInteropHelper(this).EnsureHandle();
         try
         {
-            _pedal = new FootPedal(hwnd);
-            _pedal.ActionDown += a => OnInput(a, InputSource.Pedal, down: true);
-            _pedal.ActionUp += a => OnInput(a, InputSource.Pedal, down: false);
+            _pedal = new FootPedal(hwnd, _pedals);
             _pedal.DevicesChanged += UpdateStatus;
         }
         catch (Exception ex)
@@ -87,9 +104,8 @@ public partial class MainWindow : Window
             PedalStatus.Text = "Fußschalter nicht verfügbar: " + ex.Message;
         }
 
-        _hookInstalled = _keys.Install();
-        _keys.ActionDown += a => OnInput(a, InputSource.Keyboard, down: true);
-        _keys.ActionUp += a => OnInput(a, InputSource.Keyboard, down: false);
+        _hookInstalled = _hook.Install();
+        OpenSerialPedal(_settings.SerialPort);
 
         _tray = new TrayIcon();
         _tray.OpenRequested += ShowFromTray;
@@ -212,7 +228,7 @@ public partial class MainWindow : Window
         }
 
         var start = _settings.RememberPositions ? TimeSpan.FromSeconds(item.Entry.PositionSeconds) : TimeSpan.Zero;
-        _player.Load(item.Entry.Path, start);
+        _ = _player.LoadAsync(item.Entry.Path, start);
         CurrentFileText.Text = item.Name;
         UpdateUi();
     }
@@ -236,9 +252,25 @@ public partial class MainWindow : Window
         _current = null;
         MessageBox.Show(this,
             $"„{name}“ konnte nicht abgespielt werden.\n\n{message}\n\n" +
-            "Hinweis: Für die Wiedergabe wird das Windows Media Feature Pack benötigt " +
-            "(bei Windows-„N“-Editionen nachinstallieren).",
+            "Ist die Datei beschädigt oder unvollständig? Andere Formate als MP3 und WAV benötigen " +
+            "zusätzlich das Windows Media Feature Pack (bei Windows-„N“-Editionen nachinstallieren).",
             "Transkription", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private bool _playbackErrorShown;
+
+    private void OnPlaybackFailed(string message)
+    {
+        // Bei gehaltenem Pedal kann das mehrfach hintereinander kommen: nur einmal melden.
+        if (_playbackErrorShown) return;
+        _playbackErrorShown = true;
+        MessageBox.Show(this,
+            "Die Wiedergabe konnte nicht gestartet werden – es wurde kein Audio-Ausgabegerät gefunden " +
+            "oder es wird gerade von einem anderen Programm verwendet.\n\n" +
+            "Bitte Lautsprecher oder Kopfhörer anschließen und in den Windows-Soundeinstellungen " +
+            $"als Standardgerät auswählen.\n\n(Technische Meldung: {message})",
+            "Transkription", MessageBoxButton.OK, MessageBoxImage.Warning);
+        _playbackErrorShown = false;
     }
 
     private void RemoveSelected()
@@ -320,7 +352,7 @@ public partial class MainWindow : Window
             VolumeText.Text = $"{Math.Round(_settings.Volume * 100)} %";
 
             StateText.Text = !_player.HasMedia
-                ? (_player.CurrentPath != null ? "Wird geladen…" : "")
+                ? (_player.IsLoading ? "Wird geladen…" : "")
                 : _player.IsWinding ? "Spulen…"
                 : _player.IsPlaying ? "Wiedergabe"
                 : "Angehalten";
@@ -346,6 +378,17 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Öffnet den seriellen Fußschalter (leer = keiner).</summary>
+    private void OpenSerialPedal(string? port)
+    {
+        _serial?.Dispose();
+        _serial = null;
+        _serialError = null;
+        if (!string.IsNullOrWhiteSpace(port))
+            _serial = SerialPedal.Open(port, _pedals, Dispatcher, out _serialError);
+        UpdateStatus();
+    }
+
     private void UpdateStatus()
     {
         if (!_hookInstalled)
@@ -353,10 +396,11 @@ public partial class MainWindow : Window
         else
             HotkeyStatus.Text = _settings.HotkeysEnabled ? "Tastenkürzel aktiv (auch im Hintergrund)" : "Tastenkürzel ausgeschaltet";
 
-        if (_pedal == null) return;
-        if (_settings.PedalBindings.Count == 0)
+        if (_serialError != null)
+            PedalStatus.Text = "Fußschalter: " + _serialError;
+        else if (_settings.PedalBindings.Count == 0)
             PedalStatus.Text = "Fußschalter: nicht eingerichtet (Einstellungen → Anlernen)";
-        else if (_pedal.HasBoundDevice)
+        else if (_pedal?.HasBoundDevice == true || (_serial != null && _settings.PedalBindings.Any(b => b.Port != null)))
             PedalStatus.Text = _settings.HotkeysEnabled ? "Fußschalter: verbunden" : "Fußschalter: ausgeschaltet";
         else
             PedalStatus.Text = "Fußschalter: nicht angeschlossen";
@@ -367,11 +411,8 @@ public partial class MainWindow : Window
         _player.Settings = _settings;
         _keys.Bindings = _settings.KeyBindings;
         _keys.Enabled = _settings.HotkeysEnabled && !_settingsOpen;
-        if (_pedal != null)
-        {
-            _pedal.Bindings = _settings.PedalBindings;
-            _pedal.Enabled = _settings.HotkeysEnabled && !_settingsOpen;
-        }
+        _pedals.Bindings = _settings.PedalBindings;
+        _pedals.Enabled = _settings.HotkeysEnabled && !_settingsOpen;
         HotkeysMenu.IsChecked = _settings.HotkeysEnabled;
         TopmostMenu.IsChecked = _settings.AlwaysOnTop;
         Topmost = _settings.AlwaysOnTop;
@@ -477,8 +518,15 @@ public partial class MainWindow : Window
 
         try
         {
-            var dlg = new SettingsWindow(_settings.Clone(), _keys, _pedal) { Owner = IsVisible ? this : null };
-            if (dlg.ShowDialog() == true)
+            var originalPort = _settings.SerialPort;
+            var dlg = new SettingsWindow(_settings.Clone(), _keys, _pedals, _pedal, OpenSerialPedal) { Owner = IsVisible ? this : null };
+            if (dlg.ShowDialog() != true)
+            {
+                // Im Dialog gewählten Anschluss verwerfen.
+                if (!string.Equals(_serial?.Port ?? "", originalPort, StringComparison.OrdinalIgnoreCase))
+                    OpenSerialPedal(originalPort);
+            }
+            else
             {
                 var updated = dlg.Result;
                 // Datei- und Fensterdaten können sich währenddessen geändert haben: aus dem laufenden Stand übernehmen.
@@ -556,9 +604,10 @@ public partial class MainWindow : Window
         RememberPosition();
         SaveBounds();
         _settings.Save();
-        _player.Unload();
-        _keys.Dispose();
+        _player.Dispose();
+        _hook.Dispose();
         _pedal?.Dispose();
+        _serial?.Dispose();
         _tray?.Dispose();
         Application.Current.Shutdown();
     }

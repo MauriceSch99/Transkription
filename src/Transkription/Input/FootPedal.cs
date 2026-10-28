@@ -1,8 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Threading;
-using Transkription.Core;
-using Transkription.Settings;
 using static Transkription.Input.NativeMethods;
 
 namespace Transkription.Input;
@@ -16,8 +14,7 @@ public sealed record HidDeviceInfo(IntPtr Handle, int VendorId, int ProductId, i
 /// Liest USB-Fußschalter (HID-Geräte wie Infinity IN-USB-1/2/3, Olympus, Philips u. a.)
 /// über die Windows Raw-Input-Schnittstelle. Dank RIDEV_INPUTSINK kommen die Signale auch
 /// an, wenn das Programm im Hintergrund oder im Infobereich läuft.
-/// Pedale werden nicht anhand fester Gerätelisten erkannt, sondern angelernt: Beim Anlernen
-/// wird gemerkt, welches Bit im Bericht des Geräts sich beim Treten ändert.
+/// Die Auswertung (Anlernen, Treten/Loslassen) übernimmt <see cref="PedalDecoder"/>.
 /// </summary>
 public sealed class FootPedal : IDisposable
 {
@@ -25,36 +22,17 @@ public sealed class FootPedal : IDisposable
     private readonly HwndSource _source;
     private readonly HashSet<(int Page, int Usage)> _registered = new();
     private readonly Dictionary<IntPtr, HidDeviceInfo> _devices = new();
-    private readonly Dictionary<IntPtr, byte[]> _lastReport = new();
-    private readonly HashSet<PedalBinding> _pressed = new();
-    private readonly Dictionary<IntPtr, HashSet<(int Byte, int Bit)>> _learnCandidates = new();
-    private readonly Dictionary<IntPtr, Queue<long>> _reportTimes = new();
     private readonly DispatcherTimer _rescanTimer;
     private readonly int _headerSize = Marshal.SizeOf<RAWINPUTHEADER>();
-    private Action<PedalBinding>? _learn;
 
-    private IReadOnlyList<PedalBinding> _bindings = Array.Empty<PedalBinding>();
+    private readonly PedalDecoder _decoder;
 
-    public IReadOnlyList<PedalBinding> Bindings
-    {
-        get => _bindings;
-        set
-        {
-            _bindings = value;
-            _pressed.Clear();
-        }
-    }
-
-    /// <summary>Wenn false, werden keine Aktionen ausgelöst (Anlernen funktioniert weiterhin).</summary>
-    public bool Enabled { get; set; } = true;
-
-    public event Action<PlayerAction>? ActionDown;
-    public event Action<PlayerAction>? ActionUp;
     public event Action? DevicesChanged;
 
-    public FootPedal(IntPtr hwnd)
+    public FootPedal(IntPtr hwnd, PedalDecoder decoder)
     {
         _hwnd = hwnd;
+        _decoder = decoder;
         _source = HwndSource.FromHwnd(hwnd) ?? throw new InvalidOperationException("Kein Fenster-Handle");
         _source.AddHook(WndProc);
         _rescanTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
@@ -70,24 +48,15 @@ public sealed class FootPedal : IDisposable
 
     /// <summary>Ist ein Gerät angeschlossen, zu dem Pedalzuordnungen existieren?</summary>
     public bool HasBoundDevice =>
-        _devices.Values.Any(d => Bindings.Any(b => b.VendorId == d.VendorId && b.ProductId == d.ProductId));
+        _devices.Values.Any(d => _decoder.Bindings.Any(b => PedalDecoder.Matches(b, ToPedal(d))));
 
-    public void BeginLearn(Action<PedalBinding> callback)
-    {
-        _learn = callback;
-        _learnCandidates.Clear();
-        _pressed.Clear();
-    }
-
-    public void CancelLearn()
-    {
-        _learn = null;
-        _learnCandidates.Clear();
-    }
+    private static PedalDevice ToPedal(HidDeviceInfo d) =>
+        new(d.Handle.ToString(), d.VendorId, d.ProductId, null, d.Name);
 
     /// <summary>Sucht alle HID-Geräte und meldet deren Geräteklassen für Raw Input an.</summary>
     public void Rescan()
     {
+        var before = _devices.Values.ToList();
         _devices.Clear();
         uint count = 0;
         var size = (uint)Marshal.SizeOf<RAWINPUTDEVICELIST>();
@@ -112,6 +81,8 @@ public sealed class FootPedal : IDisposable
             _devices[info.Handle] = info;
             Register(info.UsagePage, info.Usage);
         }
+        foreach (var gone in before.Where(d => !_devices.ContainsKey(d.Handle)))
+            _decoder.DeviceRemoved(ToPedal(gone));
         DevicesChanged?.Invoke();
     }
 
@@ -224,79 +195,7 @@ public sealed class FootPedal : IDisposable
         }
 
         for (var i = 0; i < count && offset + sizeHid <= buf.Length; i++, offset += sizeHid)
-            OnReport(device, buf.AsSpan(offset, sizeHid).ToArray());
-    }
-
-    private void OnReport(HidDeviceInfo device, byte[] report)
-    {
-        _lastReport.TryGetValue(device.Handle, out var previous);
-        _lastReport[device.Handle] = report;
-
-        if (_learn != null)
-        {
-            if (previous != null && previous.Length == report.Length && !IsNoisy(device.Handle))
-                Learn(device, previous, report);
-            return;
-        }
-
-        foreach (var b in Bindings)
-        {
-            if (b.VendorId != device.VendorId || b.ProductId != device.ProductId) continue;
-            if (b.ByteIndex >= report.Length) continue;
-
-            var down = (report[b.ByteIndex] & b.Mask) == b.Mask;
-            if (down && Enabled && _pressed.Add(b))
-            {
-                ActionDown?.Invoke(b.Action);
-            }
-            else if (!down && _pressed.Remove(b))
-            {
-                ActionUp?.Invoke(b.Action);
-            }
-        }
-    }
-
-    /// <summary>Geräte, die ständig Berichte schicken (Gamepad-Achsen, Beleuchtung …), sind keine Pedale.</summary>
-    private bool IsNoisy(IntPtr device)
-    {
-        var now = Environment.TickCount64;
-        if (!_reportTimes.TryGetValue(device, out var times)) _reportTimes[device] = times = new Queue<long>();
-        times.Enqueue(now);
-        while (times.Count > 0 && now - times.Peek() > 1000) times.Dequeue();
-        return times.Count > 30;
-    }
-
-    /// <summary>
-    /// Ein Knopf gilt als erkannt, wenn dasselbe Bit erst umspringt und danach wieder zurück
-    /// (Treten und Loslassen). Zufällige einmalige Änderungen anderer Geräte zählen so nicht.
-    /// </summary>
-    private void Learn(HidDeviceInfo device, byte[] previous, byte[] report)
-    {
-        if (!_learnCandidates.TryGetValue(device.Handle, out var candidates))
-            _learnCandidates[device.Handle] = candidates = new HashSet<(int, int)>();
-
-        for (var i = 0; i < report.Length; i++)
-        {
-            var diff = previous[i] ^ report[i];
-            for (var bit = 0; bit < 8; bit++)
-            {
-                if ((diff & (1 << bit)) == 0) continue;
-                if (candidates.Add((i, bit))) continue;
-
-                var cb = _learn!;
-                _learn = null;
-                _learnCandidates.Clear();
-                cb(new PedalBinding
-                {
-                    VendorId = device.VendorId,
-                    ProductId = device.ProductId,
-                    ByteIndex = i,
-                    Mask = 1 << bit,
-                    DeviceName = device.Name,
-                });
-                return;
-            }
-        }
+            _decoder.Process(ToPedal(device), buf.AsSpan(offset, sizeHid).ToArray(), Environment.TickCount64);
     }
 
     public void Dispose()

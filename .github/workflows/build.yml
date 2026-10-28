@@ -20,6 +20,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Tests (MP3-Wiedergabe, Bedienlogik, Fußschalter)
+        run: dotnet test tests/Transkription.Tests -c Release
+
       - name: Veröffentlichen (eine einzelne .exe, ohne Installation lauffähig)
         run: >
           dotnet publish src/Transkription/Transkription.csproj -c Release -r win-x64

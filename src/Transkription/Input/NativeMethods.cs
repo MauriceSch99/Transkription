@@ -162,6 +162,21 @@ internal static class NativeMethods
     public static extern SafeFileHandle CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode,
         IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
 
+    // ---------- Serielle Schnittstelle (ältere Fußschalter) ----------
+
+    public const uint GENERIC_READ = 0x80000000;
+    public const uint GENERIC_WRITE = 0x40000000;
+    public const uint SETRTS = 3;
+    public const uint SETDTR = 5;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetCommModemStatus(SafeFileHandle hFile, out uint lpModemStat);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EscapeCommFunction(SafeFileHandle hFile, uint dwFunc);
+
     [DllImport("hid.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.U1)]
     public static extern bool HidD_GetProductString(SafeFileHandle hidDeviceObject, byte[] buffer, int bufferLength);

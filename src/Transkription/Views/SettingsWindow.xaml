@@ -49,12 +49,12 @@
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center" Margin="8,0" />
                                                     <DockPanel Grid.Column="1" Margin="8,0">
-                                                        <Button DockPanel.Dock="Right" Content="✕" Width="24" Margin="4,0,0,0" ToolTip="Taste entfernen" Click="ClearKey_Click" />
+                                                        <Button DockPanel.Dock="Right" Content="×" Width="24" Margin="4,0,0,0" ToolTip="Taste entfernen" Click="ClearKey_Click" />
                                                         <Button DockPanel.Dock="Right" Content="{Binding KeyButtonText}" Width="96" Margin="4,0,0,0" Click="CaptureKey_Click" />
                                                         <TextBlock Text="{Binding KeyText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                     </DockPanel>
                                                     <DockPanel Grid.Column="2" Margin="8,0">
-                                                        <Button DockPanel.Dock="Right" Content="✕" Width="24" Margin="4,0,8,0" ToolTip="Pedal entfernen" Click="ClearPedal_Click" />
+                                                        <Button DockPanel.Dock="Right" Content="×" Width="24" Margin="4,0,8,0" ToolTip="Pedal entfernen" Click="ClearPedal_Click" />
                                                         <Button DockPanel.Dock="Right" Content="{Binding PedalButtonText}" Width="96" Margin="4,0,0,0" Click="LearnPedal_Click" />
                                                         <TextBlock Text="{Binding PedalText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding PedalText}" />
                                                     </DockPanel>
@@ -130,8 +130,20 @@
             <!-- Geräte -->
             <TabItem Header="Geräte">
                 <DockPanel Margin="10">
-                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
-                               Text="Erkannte USB-Eingabegeräte (HID). Ein angeschlossener Fußschalter sollte hier erscheinen. Wird er nicht angezeigt, gibt er sich vermutlich als Tastatur aus – dann im ersten Reiter „Taste ändern“ verwenden." />
+                    <StackPanel DockPanel.Dock="Top">
+                        <TextBlock FontWeight="SemiBold" Text="Serieller Fußschalter (9-poliger Stecker, auch über USB-Seriell-Adapter)" />
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
+                            <TextBlock Text="Anschluss:" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <ComboBox x:Name="SerialBox" Width="140" />
+                        </StackPanel>
+                        <TextBlock TextWrapping="Wrap" Foreground="#4A5563" Margin="0,0,0,14"
+                                   Text="Nur nötig für ältere Pedale mit seriellem Stecker. Nach der Auswahl im ersten Reiter die Pedale anlernen. USB-Fußschalter brauchen hier keine Einstellung." />
+
+                        <TextBlock FontWeight="SemiBold" Text="USB-Eingabegeräte" />
+                        <TextBlock TextWrapping="Wrap" Margin="0,4,0,6"
+                                   Text="Ein angeschlossener USB-Fußschalter sollte hier erscheinen (Philips-Geräte haben meist die VID 0911). Wird er beim Treten unten als „Letztes Signal“ angezeigt, kann er angelernt werden." />
+                        <TextBlock x:Name="LastSignalText" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6" Text="Letztes Signal: –" />
+                    </StackPanel>
                     <Button DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,8,0,0" Padding="10,3"
                             Content="Neu suchen" Click="Rescan_Click" />
                     <ListBox x:Name="DeviceList" />
